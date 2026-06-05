@@ -1,0 +1,1984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Dong Breaker 🍆</title>
+  <meta name="description" content="Dong Breaker – A very special birthday game">
+  <meta name="author" content="Alessandro">
+  <meta name="theme-color" content="#1a0a2e">
+  <meta property="og:title" content="Dong Breaker">
+  <meta property="og:description" content="A ridiculous birthday Arkanoid clone for Lorenzo">
+  <meta property="og:url" content="https://alessandrodd.github.io/lor_birthday/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Dong Breaker">
+  <link rel="manifest" href="./site.webmanifest">
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a12;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+      font-family: 'Outfit', sans-serif;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    #game-container {
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    canvas {
+      display: block;
+      border-radius: 12px;
+      box-shadow:
+        0 0 40px rgba(255, 100, 150, 0.3),
+        0 0 80px rgba(255, 100, 150, 0.1),
+        inset 0 0 60px rgba(0,0,0,0.3);
+    }
+
+    #loading-modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: radial-gradient(ellipse at center, #1a0a1e 0%, #0a0a12 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      transition: opacity 0.5s ease;
+    }
+
+    #loading-modal.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #loading-modal h1 {
+      font-size: 2.5rem;
+      color: #ff6b9d;
+      text-shadow: 0 0 30px rgba(255,107,157,0.5);
+      margin-bottom: 1rem;
+    }
+
+    .loader {
+      width: 60px;
+      height: 60px;
+      border: 4px solid rgba(255,107,157,0.2);
+      border-top-color: #ff6b9d;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    #orientation-hint {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      max-width: min(92vw, 460px);
+      padding: 10px 14px;
+      border: 1px solid rgba(255, 136, 187, 0.45);
+      border-radius: 8px;
+      background: rgba(16, 6, 20, 0.82);
+      color: #ffd6e6;
+      font-size: 13px;
+      text-align: center;
+      z-index: 20;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    @media (orientation: portrait) and (max-width: 820px) {
+      #orientation-hint { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div id="loading-modal">
+    <h1>🍆 Dong Breaker</h1>
+    <div class="loader"></div>
+  </div>
+  <div id="game-container">
+    <canvas id="game-canvas"></canvas>
+  </div>
+  <div id="orientation-hint">Rotate sideways for the full arcade view.</div>
+
+<script>
+// ============================================================
+//  DONG BREAKER — Arkanoid Clone (Birthday Edition)
+// ============================================================
+
+(() => {
+  'use strict';
+
+  // ----- CONFIG -----
+  const PASSWORD_TARGET_SCORE = 2000;
+  const SECRET_PASSWORD = 'DongMaster2026';
+  const BIRTHDAY_NAME = 'Lorenzo';
+
+  // ----- SOUND (Web Audio API) -----
+  let audioCtx = null;
+  function initAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  function playTone(freq, duration, type, volume) {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type || 'square';
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    gain.gain.setValueAtTime(volume || 0.15, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+  }
+  function playNoise(duration, volume) {
+    if (!audioCtx) return;
+    const bufferSize = audioCtx.sampleRate * duration;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * Math.max(0, 1 - i / bufferSize);
+    const src = audioCtx.createBufferSource();
+    const gain = audioCtx.createGain();
+    src.buffer = buffer;
+    gain.gain.setValueAtTime(volume || 0.1, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+    src.connect(gain);
+    gain.connect(audioCtx.destination);
+    src.start();
+  }
+  // Slap / fap sound on paddle hit
+  function sfxBounce() {
+    playNoise(0.06, 0.2);
+    playTone(180 + Math.random() * 60, 0.04, 'square', 0.08);
+  }
+  // Wet smack on brick hit
+  function sfxHit() {
+    playNoise(0.04, 0.12);
+    playTone(250 + Math.random() * 150, 0.05, 'square', 0.1);
+  }
+  // Moan-like rising tone on brick break
+  function sfxBreak() {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    const baseFreq = 250 + Math.random() * 100;
+    osc.frequency.setValueAtTime(baseFreq, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(baseFreq * 2.5, audioCtx.currentTime + 0.15);
+    osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.2, audioCtx.currentTime + 0.25);
+    gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.3);
+    playNoise(0.08, 0.06);
+  }
+  // Sexy powerup jingle
+  function sfxPowerup() {
+    playTone(440, 0.08, 'sine', 0.12);
+    setTimeout(() => playTone(554, 0.08, 'sine', 0.12), 60);
+    setTimeout(() => playTone(659, 0.08, 'sine', 0.12), 120);
+    setTimeout(() => playTone(880, 0.15, 'sine', 0.15), 180);
+    setTimeout(() => playNoise(0.1, 0.08), 200);
+  }
+  // Sad deflating / fart on death
+  function sfxDie() {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.5);
+    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.5);
+    setTimeout(() => playNoise(0.15, 0.1), 100);
+  }
+  // Orgasm-like crescendo on level up
+  function sfxLevelUp() {
+    const freqs = [300, 350, 420, 500, 600, 720, 880, 1050];
+    freqs.forEach((f, i) => {
+      setTimeout(() => {
+        playTone(f, 0.12, 'sine', 0.08 + i * 0.01);
+        if (i > 4) playNoise(0.05, 0.04 + i * 0.01);
+      }, i * 70);
+    });
+    setTimeout(() => {
+      playNoise(0.3, 0.15);
+      playTone(1200, 0.4, 'sine', 0.12);
+    }, freqs.length * 70);
+  }
+  function sfxLaunch() {
+    playTone(160, 0.05, 'triangle', 0.08);
+    setTimeout(() => playTone(420, 0.08, 'sine', 0.1), 45);
+  }
+  function sfxMoneyshot() {
+    playNoise(0.18, 0.22);
+    setTimeout(() => playNoise(0.12, 0.16), 80);
+    setTimeout(() => playTone(760, 0.16, 'sine', 0.1), 90);
+  }
+  function sfxUnlock() {
+    [523, 659, 784, 1046].forEach((freq, i) => {
+      setTimeout(() => playTone(freq, 0.16, 'sine', 0.13), i * 90);
+    });
+  }
+
+  // ----- FLOATING TEXT -----
+  let floatingTexts = [];
+  function spawnFloatingText(x, y, text, color, size) {
+    floatingTexts.push({ x, y, text, color, size: size || 14, life: 1, vy: -1.5 });
+  }
+
+  // ----- SCREEN SHAKE -----
+  let shakeAmount = 0;
+  let shakeDecay = 0.9;
+
+  // ----- CANVAS SETUP -----
+  const canvas = document.getElementById('game-canvas');
+  const ctx = canvas.getContext('2d');
+
+  // Base design resolution (landscape)
+  const BASE_W = 960;
+  const BASE_H = 600;
+
+  let scale = 1;
+  let offsetX = 0, offsetY = 0;
+
+  function resizeCanvas() {
+    const maxW = window.innerWidth * 0.96;
+    const maxH = window.innerHeight * 0.94;
+    const aspect = BASE_W / BASE_H;
+    let w, h;
+    if (maxW / maxH > aspect) {
+      h = maxH;
+      w = h * aspect;
+    } else {
+      w = maxW;
+      h = w / aspect;
+    }
+    canvas.width = BASE_W;
+    canvas.height = BASE_H;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    scale = w / BASE_W;
+    const rect = canvas.getBoundingClientRect();
+    offsetX = rect.left;
+    offsetY = rect.top;
+  }
+
+  // ----- GAME STATE -----
+  const STATE = {
+    MENU: 0,
+    PLAYING: 1,
+    PAUSED: 2,
+    LEVEL_COMPLETE: 3,
+    GAME_OVER: 4,
+    VICTORY: 5
+  };
+
+  let gameState = STATE.MENU;
+  let score = 0;
+  let lives = 3;
+  let level = 1;
+  let combo = 0;
+  let maxCombo = 0;
+  let highScore = parseInt(localStorage.getItem('dongbreaker_hs') || '0');
+  let passwordRevealed = false;
+
+  // ----- PADDLE -----
+  const paddle = {
+    x: BASE_W / 2,
+    y: BASE_H - 40,
+    width: 120,
+    height: 18,
+    baseWidth: 120,
+    speed: 0,
+    targetX: BASE_W / 2,
+    sticky: false,
+    stickyBall: null,
+    powerTimer: 0,
+    powerType: null
+  };
+
+  // ----- BALL(S) -----
+  let balls = [];
+  const BALL_RADIUS = 8;
+  const BALL_BASE_SPEED = 5.5;
+  let ballSpeed = BALL_BASE_SPEED;
+
+  function createBall(x, y, dx, dy) {
+    return { x, y, dx, dy, radius: BALL_RADIUS, trail: [], fireball: false };
+  }
+
+  function resetBall() {
+    balls = [];
+    const b = createBall(paddle.x, paddle.y - BALL_RADIUS - paddle.height / 2, 0, 0);
+    paddle.sticky = true;
+    paddle.stickyBall = b;
+    balls.push(b);
+  }
+
+  function launchBall() {
+    if (paddle.sticky && paddle.stickyBall) {
+      const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.4;
+      paddle.stickyBall.dx = Math.cos(angle) * ballSpeed;
+      paddle.stickyBall.dy = Math.sin(angle) * ballSpeed;
+      paddle.sticky = false;
+      paddle.stickyBall = null;
+      sfxLaunch();
+    }
+  }
+
+  // ----- BRICKS -----
+  let bricks = [];
+  const BRICK_ROWS = 6;
+  const BRICK_COLS = 12;
+  const BRICK_W = 58;
+  const BRICK_H = 22;
+  const BRICK_PAD = 4;
+  const BRICK_OFFSET_X = 80;
+  const BRICK_OFFSET_Y = 50;
+
+  // Brick types: 'normal', 'hard', 'balls' (has balls on it), 'sperm'
+  const BRICK_COLORS = [
+    '#ff6b9d', '#ff4081', '#e91e63', '#c2185b', '#880e4f',
+    '#f48fb1', '#f06292', '#ec407a', '#d81b60', '#ad1457',
+    '#ffab91', '#ff8a65'
+  ];
+
+  function generateLevel(lvl) {
+    bricks = [];
+    const patterns = [
+      // Level 1: Simple rows
+      () => {
+        for (let r = 0; r < BRICK_ROWS; r++) {
+          for (let c = 0; c < BRICK_COLS; c++) {
+            bricks.push(makeBrick(r, c, r < 2 ? 2 : 1, BRICK_COLORS[r % BRICK_COLORS.length]));
+          }
+        }
+      },
+      // Level 2: Phallic pattern
+      () => {
+        const pattern = [
+          '....XXXX....',
+          '...XXXXXX...',
+          '...XXXXXX...',
+          '....XXXX....',
+          '....XXXX....',
+          '.XXXXXXXXXX.',
+        ];
+        for (let r = 0; r < pattern.length; r++) {
+          for (let c = 0; c < pattern[r].length; c++) {
+            if (pattern[r][c] === 'X') {
+              const hp = r < 2 ? 2 : 1;
+              bricks.push(makeBrick(r, c, hp, BRICK_COLORS[(r + c) % BRICK_COLORS.length]));
+            }
+          }
+        }
+      },
+      // Level 3: Dual towers
+      () => {
+        for (let r = 0; r < BRICK_ROWS; r++) {
+          for (let c = 0; c < BRICK_COLS; c++) {
+            if ((c >= 1 && c <= 3) || (c >= 8 && c <= 10)) {
+              bricks.push(makeBrick(r, c, r < 1 ? 3 : (r < 3 ? 2 : 1),
+                BRICK_COLORS[(r * 3 + c) % BRICK_COLORS.length]));
+            }
+          }
+        }
+      },
+      // Level 4: V shape
+      () => {
+        for (let r = 0; r < BRICK_ROWS; r++) {
+          for (let c = 0; c < BRICK_COLS; c++) {
+            if (c >= r && c < BRICK_COLS - r) {
+              bricks.push(makeBrick(r, c, r < 2 ? 3 : (r < 4 ? 2 : 1),
+                BRICK_COLORS[(r + c * 2) % BRICK_COLORS.length]));
+            }
+          }
+        }
+      },
+      // Level 5: Diamond
+      () => {
+        const cx = 5.5, cy = 2.5;
+        for (let r = 0; r < BRICK_ROWS; r++) {
+          for (let c = 0; c < BRICK_COLS; c++) {
+            const dist = Math.abs(c - cx) + Math.abs(r - cy);
+            if (dist <= 4) {
+              bricks.push(makeBrick(r, c, dist <= 2 ? 3 : (dist <= 3 ? 2 : 1),
+                BRICK_COLORS[(r + c) % BRICK_COLORS.length]));
+            }
+          }
+        }
+      },
+      // Level 6+: Full hard grid
+      () => {
+        for (let r = 0; r < BRICK_ROWS; r++) {
+          for (let c = 0; c < BRICK_COLS; c++) {
+            bricks.push(makeBrick(r, c, Math.min(3, 1 + Math.floor(lvl / 3)),
+              BRICK_COLORS[(r * c + lvl) % BRICK_COLORS.length]));
+          }
+        }
+      }
+    ];
+
+    const idx = Math.min(lvl - 1, patterns.length - 1);
+    patterns[idx]();
+
+    // Sprinkle some special bricks
+    bricks.forEach((b, i) => {
+      if (Math.random() < 0.12) b.type = 'balls';
+      if (Math.random() < 0.08) b.type = 'sperm';
+    });
+  }
+
+  function makeBrick(r, c, hp, color) {
+    return {
+      x: BRICK_OFFSET_X + c * (BRICK_W + BRICK_PAD),
+      y: BRICK_OFFSET_Y + r * (BRICK_H + BRICK_PAD),
+      w: BRICK_W,
+      h: BRICK_H,
+      hp: hp,
+      maxHp: hp,
+      color: color,
+      type: 'normal',
+      alive: true,
+      shakeTimer: 0,
+      particles: []
+    };
+  }
+
+  // ----- POWERUPS -----
+  let powerups = [];
+  // Sex-themed power-ups
+  const POWERUP_TYPES = ['viagra', 'orgy', 'boner', 'cockring', 'moneyshot', 'blueballs'];
+  const POWERUP_SPEED = 2.5;
+  const POWERUP_LABELS = {
+    viagra: 'VIAGRA!',
+    orgy: 'ORGY!',
+    boner: 'BONER!',
+    cockring: 'COCK RING!',
+    moneyshot: 'MONEYSHOT!',
+    blueballs: 'BLUE BALLS!'
+  };
+
+  function spawnPowerup(x, y) {
+    if (Math.random() > 0.28) return; // 28% chance
+    const type = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
+    powerups.push({ x, y, type, radius: 15, vy: POWERUP_SPEED, rotation: 0 });
+  }
+
+  function applyPowerup(type) {
+    switch (type) {
+      case 'viagra': { // Big dick paddle
+        paddle.width = Math.min(210, paddle.baseWidth * 1.7);
+        paddle.powerType = 'viagra';
+        paddle.powerTimer = 600;
+        break;
+      }
+      case 'orgy': { // Multi-ball
+        const newBalls = [];
+        balls.forEach(b => {
+          for (let i = 0; i < 2; i++) {
+            const angle = Math.atan2(b.dy, b.dx) + (i === 0 ? 0.4 : -0.4);
+            const nb = createBall(b.x, b.y,
+              Math.cos(angle) * ballSpeed,
+              Math.sin(angle) * ballSpeed);
+            newBalls.push(nb);
+          }
+        });
+        balls = balls.concat(newBalls);
+        break;
+      }
+      case 'boner': { // Fireball piercing
+        balls.forEach(b => b.fireball = true);
+        paddle.powerType = 'boner';
+        paddle.powerTimer = 480;
+        break;
+      }
+      case 'cockring': { // Extra life
+        lives = Math.min(5, lives + 1);
+        break;
+      }
+      case 'moneyshot': { // Sperm blast
+        destroyRandomBricks(5 + Math.min(level, 4));
+        break;
+      }
+      case 'blueballs': { // Slow down
+        ballSpeed = BALL_BASE_SPEED * 0.6;
+        paddle.powerType = 'blueballs';
+        paddle.powerTimer = 420;
+        break;
+      }
+    }
+  }
+
+  // ----- PARTICLES -----
+  let particles = [];
+
+  function spawnParticles(x, y, color, count, speed) {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const spd = Math.random() * speed + 1;
+      particles.push({
+        x, y,
+        vx: Math.cos(angle) * spd,
+        vy: Math.sin(angle) * spd,
+        life: 1,
+        decay: 0.01 + Math.random() * 0.03,
+        size: 2 + Math.random() * 4,
+        color
+      });
+    }
+  }
+
+  function spawnSpermParticles(x, y) {
+    for (let i = 0; i < 18; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const spd = Math.random() * 3 + 1;
+      particles.push({
+        x, y,
+        vx: Math.cos(angle) * spd,
+        vy: Math.sin(angle) * spd,
+        life: 1,
+        decay: 0.008 + Math.random() * 0.015,
+        size: 3 + Math.random() * 3,
+        color: '#fff',
+        isSperm: true,
+        tailAngle: angle + Math.PI,
+        wiggle: Math.random() * 10
+      });
+    }
+  }
+
+  function destroyRandomBricks(count) {
+    const targets = bricks
+      .filter(b => b.alive)
+      .sort(() => Math.random() - 0.5)
+      .slice(0, count);
+
+    if (targets.length === 0) return;
+
+    sfxMoneyshot();
+    shakeAmount = Math.min(10, shakeAmount + 5);
+    targets.forEach(brick => {
+      brick.alive = false;
+      const bx = brick.x + brick.w / 2;
+      const by = brick.y + brick.h / 2;
+      const points = 20 + level * 5;
+      score += points;
+      spawnSpermParticles(bx, by);
+      spawnParticles(bx, by, brick.color, 12, 5);
+      spawnFloatingText(bx, by - 12, `+${points}`, '#fff4cf', 13);
+    });
+    checkPasswordUnlock();
+  }
+
+  function checkPasswordUnlock() {
+    if (passwordRevealed || score < PASSWORD_TARGET_SCORE) return;
+    passwordRevealed = true;
+    spawnFloatingText(BASE_W / 2, BASE_H * 0.42, 'SECRET UNLOCKED!', '#ffdd44', 26);
+    sfxUnlock();
+  }
+
+  // ----- DRAWING HELPERS -----
+
+  // Draw a cartoon dong shape (for bricks, powerups)
+  function drawDong(ctx, x, y, w, h, color, withBalls) {
+    ctx.save();
+    const shaftW = w * 0.35;
+    const shaftH = h * 0.85;
+    const headR = shaftW * 0.65;
+
+    // Shaft
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.roundRect(x + w / 2 - shaftW / 2, y + h - shaftH, shaftW, shaftH, [4, 4, 2, 2]);
+    ctx.fill();
+
+    // Head
+    ctx.fillStyle = lightenColor(color, 20);
+    ctx.beginPath();
+    ctx.ellipse(x + w / 2, y + h - shaftH, headR, headR * 0.8, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Outline
+    ctx.strokeStyle = darkenColor(color, 30);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(x + w / 2 - shaftW / 2, y + h - shaftH, shaftW, shaftH, [4, 4, 2, 2]);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(x + w / 2, y + h - shaftH, headR, headR * 0.8, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    if (withBalls) {
+      const ballR = shaftW * 0.4;
+      ctx.fillStyle = darkenColor(color, 10);
+      ctx.beginPath();
+      ctx.arc(x + w / 2 - shaftW * 0.35, y + h - 2, ballR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(x + w / 2 + shaftW * 0.35, y + h - 2, ballR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = darkenColor(color, 30);
+      ctx.beginPath();
+      ctx.arc(x + w / 2 - shaftW * 0.35, y + h - 2, ballR, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(x + w / 2 + shaftW * 0.35, y + h - 2, ballR, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  function drawSmallDong(ctx, x, y, size, color, rotation) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rotation);
+    const s = size;
+    // Shaft
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.roundRect(-s * 0.2, -s * 0.5, s * 0.4, s * 0.8, [3, 3, 1, 1]);
+    ctx.fill();
+    // Head
+    ctx.fillStyle = lightenColor(color, 25);
+    ctx.beginPath();
+    ctx.ellipse(0, -s * 0.5, s * 0.28, s * 0.22, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Balls
+    ctx.fillStyle = darkenColor(color, 15);
+    ctx.beginPath();
+    ctx.arc(-s * 0.15, s * 0.35, s * 0.15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(s * 0.15, s * 0.35, s * 0.15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawSperm(ctx, x, y, size, angle, wigglePhase) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+
+    // Head
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, size * 0.5, size * 0.35, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Tail (wavy)
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(size * 0.4, 0);
+    for (let t = 0; t < 1; t += 0.05) {
+      const tx = size * 0.4 + t * size * 2;
+      const ty = Math.sin(t * 8 + wigglePhase) * size * 0.3 * t;
+      ctx.lineTo(tx, ty);
+    }
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  // ----- BRICK RENDERING -----
+  function drawBrick(brick) {
+    if (!brick.alive) return;
+
+    ctx.save();
+
+    // Shake effect
+    let shakeX = 0, shakeY = 0;
+    if (brick.shakeTimer > 0) {
+      shakeX = (Math.random() - 0.5) * 4;
+      shakeY = (Math.random() - 0.5) * 4;
+    }
+
+    const bx = brick.x + shakeX;
+    const by = brick.y + shakeY;
+
+    // HP-based opacity
+    const alpha = 0.5 + (brick.hp / brick.maxHp) * 0.5;
+    ctx.globalAlpha = alpha;
+
+    // Base brick (rounded rect with gradient)
+    const grad = ctx.createLinearGradient(bx, by, bx, by + brick.h);
+    grad.addColorStop(0, lightenColor(brick.color, 20));
+    grad.addColorStop(1, darkenColor(brick.color, 15));
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect(bx, by, brick.w, brick.h, 4);
+    ctx.fill();
+
+    // Border
+    ctx.strokeStyle = darkenColor(brick.color, 35);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(bx, by, brick.w, brick.h, 4);
+    ctx.stroke();
+
+    // Highlight
+    ctx.strokeStyle = `rgba(255,255,255,0.3)`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(bx + 4, by + 2);
+    ctx.lineTo(bx + brick.w - 4, by + 2);
+    ctx.stroke();
+
+    ctx.globalAlpha = 1;
+
+    // Type indicators
+    if (brick.type === 'balls') {
+      // Draw big explicit balls/scrotum
+      const bcx = bx + brick.w / 2;
+      const bcy = by + brick.h / 2;
+      const bs = Math.min(brick.h * 0.42, 9);
+      // Sack background
+      ctx.fillStyle = darkenColor(brick.color, 30);
+      ctx.beginPath();
+      ctx.ellipse(bcx, bcy + 1, bs * 1.6, bs * 1.05, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Left ball
+      ctx.fillStyle = lightenColor(brick.color, -10);
+      ctx.beginPath();
+      ctx.ellipse(bcx - bs * 0.6, bcy + 1, bs * 0.85, bs * 0.95, -0.15, 0, Math.PI * 2);
+      ctx.fill();
+      // Right ball
+      ctx.beginPath();
+      ctx.ellipse(bcx + bs * 0.6, bcy + 1, bs * 0.85, bs * 0.95, 0.15, 0, Math.PI * 2);
+      ctx.fill();
+      // Outlines
+      ctx.strokeStyle = darkenColor(brick.color, 50);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.ellipse(bcx - bs * 0.6, bcy + 1, bs * 0.85, bs * 0.95, -0.15, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(bcx + bs * 0.6, bcy + 1, bs * 0.85, bs * 0.95, 0.15, 0, Math.PI * 2);
+      ctx.stroke();
+      // Center crease
+      ctx.strokeStyle = darkenColor(brick.color, 45);
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(bcx, bcy - bs * 0.8);
+      ctx.quadraticCurveTo(bcx + 0.5, bcy, bcx, bcy + bs * 0.8);
+      ctx.stroke();
+      // Wrinkle lines
+      ctx.strokeStyle = darkenColor(brick.color, 35);
+      ctx.lineWidth = 0.5;
+      for (let w = 0; w < 3; w++) {
+        const wy = bcy - bs * 0.3 + w * bs * 0.35;
+        ctx.beginPath();
+        ctx.moveTo(bcx - bs * 0.5, wy);
+        ctx.quadraticCurveTo(bcx, wy + 1.5, bcx + bs * 0.5, wy);
+        ctx.stroke();
+      }
+    } else if (brick.type === 'sperm') {
+      drawSperm(ctx, bx + brick.w / 2, by + brick.h / 2, 7,
+        Math.sin(performance.now() / 300) * 0.3, performance.now() / 200);
+    }
+
+    // HP indicator for hard bricks
+    if (brick.hp > 1) {
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 10px Outfit';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(brick.hp.toString(), bx + brick.w / 2, by + brick.h / 2);
+    }
+
+    ctx.restore();
+  }
+
+  // ----- PADDLE RENDERING (COCK-SHAPED) -----
+  function drawPaddle() {
+    ctx.save();
+
+    const pw = paddle.width;
+    const ph = paddle.height + 6; // taller for cock shape
+    const cx = paddle.x;
+    const cy = paddle.y;
+
+    // Color scheme
+    let skinBase, skinLight, skinDark, glansColor, glansDark, veinColor, glowColor;
+    if (paddle.powerType === 'boner') {
+      skinBase = '#cc3300'; skinLight = '#ff5533'; skinDark = '#991100';
+      glansColor = '#ff4422'; glansDark = '#cc2200'; veinColor = '#881100';
+      glowColor = '#ff4400';
+    } else if (paddle.powerType === 'viagra') {
+      skinBase = '#2277ff'; skinLight = '#55aaff'; skinDark = '#1144cc';
+      glansColor = '#3388ff'; glansDark = '#1155dd'; veinColor = '#0033aa';
+      glowColor = '#3399ff';
+    } else if (paddle.powerType === 'blueballs') {
+      skinBase = '#88aacc'; skinLight = '#aaccee'; skinDark = '#667799';
+      glansColor = '#99bbdd'; glansDark = '#7799bb'; veinColor = '#556688';
+      glowColor = '#88bbdd';
+    } else {
+      skinBase = '#e8a090'; skinLight = '#f5c4b8'; skinDark = '#c47868';
+      glansColor = '#d4706a'; glansDark = '#b85555'; veinColor = '#9a6565';
+      glowColor = '#ff8899';
+    }
+
+    // Glow
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = 18;
+
+    // === SHAFT (main body - horizontal) ===
+    const shaftLeft = cx - pw / 2 + 18; // leave room for balls on left
+    const shaftRight = cx + pw / 2 - 8; // leave room for glans on right
+    const shaftW = shaftRight - shaftLeft;
+    const shaftH = ph * 0.65;
+    const shaftY = cy - shaftH / 2;
+
+    // Shaft gradient (top-lit)
+    const shaftGrad = ctx.createLinearGradient(0, shaftY, 0, shaftY + shaftH);
+    shaftGrad.addColorStop(0, skinLight);
+    shaftGrad.addColorStop(0.4, skinBase);
+    shaftGrad.addColorStop(1, skinDark);
+    ctx.fillStyle = shaftGrad;
+    ctx.beginPath();
+    ctx.roundRect(shaftLeft, shaftY, shaftW, shaftH, [3, 3, 3, 3]);
+    ctx.fill();
+
+    // Shaft outline
+    ctx.strokeStyle = skinDark;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.roundRect(shaftLeft, shaftY, shaftW, shaftH, [3, 3, 3, 3]);
+    ctx.stroke();
+
+    // Veins on shaft
+    ctx.strokeStyle = veinColor;
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.4;
+    // Vein 1
+    ctx.beginPath();
+    ctx.moveTo(shaftLeft + shaftW * 0.2, shaftY + 3);
+    ctx.quadraticCurveTo(shaftLeft + shaftW * 0.35, shaftY + shaftH * 0.5, shaftLeft + shaftW * 0.55, shaftY + 4);
+    ctx.stroke();
+    // Vein 2
+    ctx.beginPath();
+    ctx.moveTo(shaftLeft + shaftW * 0.5, shaftY + shaftH - 3);
+    ctx.quadraticCurveTo(shaftLeft + shaftW * 0.7, shaftY + shaftH * 0.4, shaftLeft + shaftW * 0.85, shaftY + shaftH - 4);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // === GLANS (tip - right side) ===
+    const glansR = shaftH * 0.55;
+    const glansCx = shaftRight + glansR * 0.5;
+    const glansCy = cy;
+
+    // Glans body (bulbous tip)
+    const glansGrad = ctx.createRadialGradient(glansCx - 2, glansCy - 2, 1, glansCx, glansCy, glansR);
+    glansGrad.addColorStop(0, lightenColor(glansColor, 30));
+    glansGrad.addColorStop(0.6, glansColor);
+    glansGrad.addColorStop(1, glansDark);
+    ctx.fillStyle = glansGrad;
+    ctx.beginPath();
+    ctx.ellipse(glansCx, glansCy, glansR * 1.1, glansR, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = glansDark;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.ellipse(glansCx, glansCy, glansR * 1.1, glansR, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Urethral slit
+    ctx.strokeStyle = glansDark;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(glansCx + glansR * 0.7, glansCy - 2);
+    ctx.lineTo(glansCx + glansR * 0.7, glansCy + 2);
+    ctx.stroke();
+
+    // Ridge / corona line between glans and shaft
+    ctx.strokeStyle = glansDark;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.ellipse(shaftRight + 2, cy, 2, shaftH * 0.38, 0, -Math.PI / 2, Math.PI / 2);
+    ctx.stroke();
+
+    // === BALLS (left side) ===
+    const ballSize = shaftH * 0.68;
+    const ballsX = shaftLeft - 2;
+
+    // Scrotum sack background
+    ctx.fillStyle = skinDark;
+    ctx.beginPath();
+    ctx.ellipse(ballsX - ballSize * 0.3, cy, ballSize * 1.1, ballSize * 1.15, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Left testicle
+    const ltGrad = ctx.createRadialGradient(ballsX - ballSize * 0.6, cy - 1, 1, ballsX - ballSize * 0.5, cy, ballSize * 0.65);
+    ltGrad.addColorStop(0, skinLight);
+    ltGrad.addColorStop(1, skinBase);
+    ctx.fillStyle = ltGrad;
+    ctx.beginPath();
+    ctx.ellipse(ballsX - ballSize * 0.5, cy - ballSize * 0.15, ballSize * 0.55, ballSize * 0.65, -0.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Right testicle
+    const rtGrad = ctx.createRadialGradient(ballsX - ballSize * 0.1, cy + 1, 1, ballsX - ballSize * 0.1, cy, ballSize * 0.6);
+    rtGrad.addColorStop(0, skinLight);
+    rtGrad.addColorStop(1, skinBase);
+    ctx.fillStyle = rtGrad;
+    ctx.beginPath();
+    ctx.ellipse(ballsX - ballSize * 0.1, cy + ballSize * 0.12, ballSize * 0.5, ballSize * 0.6, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Sack outline
+    ctx.strokeStyle = skinDark;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.ellipse(ballsX - ballSize * 0.3, cy, ballSize * 1.1, ballSize * 1.15, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    // Scrotum crease
+    ctx.strokeStyle = skinDark;
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(ballsX - ballSize * 0.3, cy - ballSize * 0.8);
+    ctx.quadraticCurveTo(ballsX - ballSize * 0.25, cy, ballsX - ballSize * 0.3, cy + ballSize * 0.8);
+    ctx.stroke();
+    ctx.strokeStyle = darkenColor(skinDark, 18);
+    ctx.lineWidth = 0.7;
+    for (let i = 0; i < 4; i++) {
+      const wy = cy - ballSize * 0.45 + i * ballSize * 0.25;
+      ctx.beginPath();
+      ctx.moveTo(ballsX - ballSize * 0.88, wy);
+      ctx.quadraticCurveTo(ballsX - ballSize * 0.3, wy + 3, ballsX + ballSize * 0.24, wy);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    // Top highlight on shaft
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(shaftLeft + 5, shaftY + 2);
+    ctx.lineTo(shaftRight - 5, shaftY + 2);
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+
+  // ----- BALL RENDERING -----
+  function drawBalls() {
+    balls.forEach(ball => {
+      ctx.save();
+
+      // Trail
+      if (ball.trail.length > 1) {
+        for (let i = 1; i < ball.trail.length; i++) {
+          const t = i / ball.trail.length;
+          ctx.globalAlpha = t * 0.3;
+          ctx.fillStyle = ball.fireball ? '#ff4400' : '#ffaacc';
+          ctx.beginPath();
+          ctx.arc(ball.trail[i].x, ball.trail[i].y, ball.radius * t, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      // Ball body - make it look like a small round head
+      ctx.shadowColor = ball.fireball ? '#ff4400' : '#ff6bb5';
+      ctx.shadowBlur = ball.fireball ? 20 : 10;
+
+      const grad = ctx.createRadialGradient(
+        ball.x - 2, ball.y - 2, 1,
+        ball.x, ball.y, ball.radius
+      );
+      if (ball.fireball) {
+        grad.addColorStop(0, '#ffdd44');
+        grad.addColorStop(0.5, '#ff6600');
+        grad.addColorStop(1, '#cc2200');
+      } else {
+        grad.addColorStop(0, '#ffe0ee');
+        grad.addColorStop(0.5, '#ffaacc');
+        grad.addColorStop(1, '#ff6699');
+      }
+
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Inner highlight
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.beginPath();
+      ctx.arc(ball.x - 2, ball.y - 2, ball.radius * 0.35, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    });
+  }
+
+  // ----- POWERUP RENDERING (SEX-THEMED) -----
+  function drawPowerups() {
+    powerups.forEach(pu => {
+      ctx.save();
+      ctx.translate(pu.x, pu.y);
+
+      // Pulsing glow circle
+      const pulse = 0.8 + Math.sin(performance.now() / 200) * 0.2;
+      ctx.shadowColor = getPowerupColor(pu.type);
+      ctx.shadowBlur = 14 * pulse;
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.beginPath();
+      ctx.arc(0, 0, pu.radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.shadowBlur = 0;
+      const r = pu.radius;
+
+      switch (pu.type) {
+        case 'viagra': {
+          // Blue pill capsule
+          ctx.fillStyle = '#2277ff';
+          ctx.beginPath();
+          ctx.roundRect(-r * 0.6, -r * 0.35, r * 1.2, r * 0.7, r * 0.35);
+          ctx.fill();
+          // Split line
+          ctx.strokeStyle = '#1155cc';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(0, -r * 0.35);
+          ctx.lineTo(0, r * 0.35);
+          ctx.stroke();
+          // V letter
+          ctx.fillStyle = '#fff';
+          ctx.font = `bold ${r * 0.5}px Outfit`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('V', -r * 0.28, 1);
+          // Right half lighter
+          ctx.fillStyle = '#55aaff';
+          ctx.beginPath();
+          ctx.roundRect(0, -r * 0.35, r * 0.6, r * 0.7, [0, r * 0.35, r * 0.35, 0]);
+          ctx.fill();
+          break;
+        }
+        case 'orgy': {
+          // Multiple intertwined dong shapes
+          for (let i = 0; i < 3; i++) {
+            const a = (i / 3) * Math.PI * 2 + pu.rotation * 2;
+            const dx = Math.cos(a) * 5;
+            const dy = Math.sin(a) * 5;
+            drawSmallDong(ctx, dx, dy, 8, ['#ff66cc', '#ff44aa', '#ff88dd'][i], a + Math.PI / 2);
+          }
+          // Heart in center
+          ctx.fillStyle = '#ff2266';
+          ctx.font = `${r * 0.7}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('❤', 0, 0);
+          break;
+        }
+        case 'boner': {
+          // Erect flaming dong
+          drawSmallDong(ctx, 0, 2, r * 1.2, '#ff3300', -Math.PI / 6 + Math.sin(performance.now() / 150) * 0.1);
+          // Fire / heat
+          ctx.fillStyle = '#ff8800';
+          const t = performance.now();
+          for (let i = 0; i < 5; i++) {
+            const fx = Math.sin(t / 80 + i * 1.3) * 5;
+            const fy = -r + Math.sin(t / 60 + i * 2) * 3;
+            const fs = 1.5 + Math.sin(t / 100 + i) * 1;
+            ctx.globalAlpha = 0.6 + Math.sin(t / 90 + i) * 0.3;
+            ctx.beginPath();
+            ctx.arc(fx, fy, fs, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.globalAlpha = 1;
+          break;
+        }
+        case 'cockring': {
+          // Gold ring around a small dong: extra life.
+          drawSmallDong(ctx, 0, 3, r * 0.95, '#f0a090', -0.25);
+          ctx.strokeStyle = '#ffd447';
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.arc(0, 0, r * 0.58, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.strokeStyle = '#9f6b00';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(0, 0, r * 0.68, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.fillStyle = '#fff4bd';
+          ctx.font = `bold ${r * 0.5}px Outfit`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('+1', 0, 1);
+          break;
+        }
+        case 'moneyshot': {
+          // Sperm burst that clears several bricks.
+          drawSmallDong(ctx, -2, 5, r * 0.95, '#ff99bb', -0.55);
+          ctx.fillStyle = '#fff';
+          const t = performance.now();
+          for (let i = 0; i < 9; i++) {
+            const a = -Math.PI / 2 + (i - 4) * 0.18 + Math.sin(t / 160 + i) * 0.08;
+            const dist = r * (0.45 + i * 0.035);
+            const sx = Math.cos(a) * dist + 3;
+            const sy = Math.sin(a) * dist - 2;
+            ctx.beginPath();
+            ctx.ellipse(sx, sy, 2.2, 3.4, a, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          break;
+        }
+        case 'blueballs': {
+          // Blue testicles
+          const bbR = r * 0.5;
+          ctx.fillStyle = '#4488cc';
+          ctx.beginPath();
+          ctx.ellipse(-bbR * 0.5, 1, bbR * 0.8, bbR, -0.15, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.ellipse(bbR * 0.5, 1, bbR * 0.8, bbR, 0.15, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#336699';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.ellipse(-bbR * 0.5, 1, bbR * 0.8, bbR, -0.15, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.ellipse(bbR * 0.5, 1, bbR * 0.8, bbR, 0.15, 0, Math.PI * 2);
+          ctx.stroke();
+          // Sweat drops
+          ctx.fillStyle = '#88ccff';
+          const st = performance.now();
+          for (let i = 0; i < 3; i++) {
+            const sy = Math.sin(st / 300 + i * 2) * 3 + 2;
+            ctx.beginPath();
+            ctx.ellipse(bbR * (i - 1) * 0.5, -bbR + sy, 1.5, 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          break;
+        }
+      }
+
+      // Label below
+      ctx.fillStyle = getPowerupColor(pu.type);
+      ctx.font = 'bold 7px Outfit';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.globalAlpha = 0.8;
+      ctx.fillText(POWERUP_LABELS[pu.type] || '', 0, r + 2);
+      ctx.globalAlpha = 1;
+
+      ctx.restore();
+    });
+  }
+
+  function getPowerupColor(type) {
+    switch (type) {
+      case 'viagra': return '#3399ff';
+      case 'orgy': return '#ff44aa';
+      case 'boner': return '#ff4400';
+      case 'cockring': return '#ffd447';
+      case 'moneyshot': return '#ffffff';
+      case 'blueballs': return '#66aadd';
+      default: return '#fff';
+    }
+  }
+
+  // ----- BACKGROUND -----
+  let bgStars = [];
+  for (let i = 0; i < 60; i++) {
+    bgStars.push({
+      x: Math.random() * BASE_W,
+      y: Math.random() * BASE_H,
+      size: Math.random() * 2 + 0.5,
+      twinkle: Math.random() * Math.PI * 2,
+      speed: 0.5 + Math.random() * 1.5
+    });
+  }
+
+  function drawBackground() {
+    // Gradient background
+    const grad = ctx.createLinearGradient(0, 0, 0, BASE_H);
+    grad.addColorStop(0, '#0d0015');
+    grad.addColorStop(0.5, '#1a0a2e');
+    grad.addColorStop(1, '#0d0015');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, BASE_W, BASE_H);
+
+    // Stars
+    const now = performance.now();
+    bgStars.forEach(star => {
+      const alpha = 0.3 + Math.sin(now / 1000 + star.twinkle) * 0.3;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#ff88bb';
+      ctx.beginPath();
+      ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+
+    // Side borders glow
+    const sideGrad = ctx.createLinearGradient(0, 0, 30, 0);
+    sideGrad.addColorStop(0, 'rgba(255,100,150,0.15)');
+    sideGrad.addColorStop(1, 'rgba(255,100,150,0)');
+    ctx.fillStyle = sideGrad;
+    ctx.fillRect(0, 0, 30, BASE_H);
+
+    const sideGrad2 = ctx.createLinearGradient(BASE_W, 0, BASE_W - 30, 0);
+    sideGrad2.addColorStop(0, 'rgba(255,100,150,0.15)');
+    sideGrad2.addColorStop(1, 'rgba(255,100,150,0)');
+    ctx.fillStyle = sideGrad2;
+    ctx.fillRect(BASE_W - 30, 0, 30, BASE_H);
+  }
+
+  // ----- HUD -----
+  function drawHUD() {
+    ctx.save();
+
+    // Score
+    ctx.fillStyle = '#ff88bb';
+    ctx.font = 'bold 18px Outfit';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(`Score: ${score}`, 12, 8);
+
+    // High score
+    ctx.fillStyle = '#aa6688';
+    ctx.font = '13px Outfit';
+    ctx.fillText(`Best: ${Math.max(highScore, score)}`, 12, 30);
+
+    // Combo
+    if (combo > 1) {
+      ctx.fillStyle = '#ffdd44';
+      ctx.font = 'bold 14px Outfit';
+      ctx.fillText(`Combo x${combo}!`, 160, 10);
+    }
+
+    // Lives (dong icons)
+    ctx.textAlign = 'right';
+    for (let i = 0; i < lives; i++) {
+      drawSmallDong(ctx, BASE_W - 20 - i * 28, 18, 10, '#ff6699', 0);
+    }
+
+    // Level
+    ctx.fillStyle = '#cc88aa';
+    ctx.font = '14px Outfit';
+    ctx.textAlign = 'center';
+    ctx.fillText(`Level ${level}`, BASE_W / 2, 8);
+
+    // Power timer
+    if (paddle.powerTimer > 0 && paddle.powerType) {
+      const barW = 100;
+      const barH = 5;
+      const maxTime = paddle.powerType === 'boner' ? 480 :
+                      paddle.powerType === 'blueballs' ? 420 : 600;
+      const pct = paddle.powerTimer / maxTime;
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(BASE_W / 2 - barW / 2, 26, barW, barH);
+      ctx.fillStyle = getPowerupColor(paddle.powerType);
+      ctx.fillRect(BASE_W / 2 - barW / 2, 26, barW * pct, barH);
+    }
+
+    ctx.restore();
+  }
+
+  // ----- PARTICLES RENDERING -----
+  function drawParticles() {
+    particles.forEach(p => {
+      ctx.save();
+      ctx.globalAlpha = p.life;
+
+      if (p.isSperm) {
+        drawSperm(ctx, p.x, p.y, p.size, p.tailAngle + Math.sin(performance.now() / 100 + p.wiggle) * 0.5, performance.now() / 150 + p.wiggle);
+      } else {
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    });
+  }
+
+  // ----- FLOATING TEXT RENDERING -----
+  function drawFloatingTexts() {
+    floatingTexts.forEach(ft => {
+      ctx.save();
+      ctx.globalAlpha = ft.life;
+      ctx.fillStyle = ft.color;
+      ctx.font = `bold ${ft.size}px Outfit`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = ft.color;
+      ctx.shadowBlur = 6;
+      ctx.fillText(ft.text, ft.x, ft.y);
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    });
+  }
+
+  // ----- SCREENS -----
+  function drawMenuScreen() {
+    drawBackground();
+
+    const now = performance.now();
+    ctx.save();
+
+    // Title
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Title glow
+    ctx.shadowColor = '#ff6bb5';
+    ctx.shadowBlur = 30;
+    ctx.fillStyle = '#ff6bb5';
+    ctx.font = 'bold 56px Outfit';
+    const titleY = BASE_H * 0.28 + Math.sin(now / 600) * 5;
+    ctx.fillText('🍆 DONG BREAKER 🍆', BASE_W / 2, titleY);
+
+    ctx.shadowBlur = 0;
+
+    // Subtitle
+    ctx.fillStyle = '#ffccdd';
+    ctx.font = '20px Outfit';
+    ctx.fillText(`Happy Birthday ${BIRTHDAY_NAME}! 🎂`, BASE_W / 2, titleY + 50);
+
+    // Animated dongs floating around
+    for (let i = 0; i < 8; i++) {
+      const angle = (now / 3000) + (i / 8) * Math.PI * 2;
+      const radius = 150 + Math.sin(now / 1000 + i) * 30;
+      const dx = BASE_W / 2 + Math.cos(angle) * radius;
+      const dy = BASE_H * 0.28 + Math.sin(angle) * 60;
+      drawSmallDong(ctx, dx, dy, 12, BRICK_COLORS[i % BRICK_COLORS.length], angle + Math.PI);
+    }
+
+    // Instructions
+    ctx.fillStyle = '#ff88aa';
+    ctx.font = '18px Outfit';
+    const pulse = 0.7 + Math.sin(now / 400) * 0.3;
+    ctx.globalAlpha = pulse;
+    ctx.fillText('🖱️ Click / Tap to Start', BASE_W / 2, BASE_H * 0.58);
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = '#aa6688';
+    ctx.font = '14px Outfit';
+    ctx.fillText('Move mouse / finger to control the paddle', BASE_W / 2, BASE_H * 0.66);
+    ctx.fillText('Click to launch the ball', BASE_W / 2, BASE_H * 0.72);
+
+    // High score
+    if (highScore > 0) {
+      ctx.fillStyle = '#ffdd44';
+      ctx.font = 'bold 16px Outfit';
+      ctx.fillText(`🏆 Best Score: ${highScore}`, BASE_W / 2, BASE_H * 0.82);
+    }
+
+    // Hint about password
+    ctx.fillStyle = '#664455';
+    ctx.font = '12px Outfit';
+    ctx.fillText(`Score ${PASSWORD_TARGET_SCORE}+ points to unlock a secret surprise...`, BASE_W / 2, BASE_H * 0.92);
+
+    ctx.restore();
+  }
+
+  function drawGameOverScreen() {
+    // Darken
+    ctx.fillStyle = 'rgba(10, 0, 15, 0.85)';
+    ctx.fillRect(0, 0, BASE_W, BASE_H);
+
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Game Over
+    ctx.shadowColor = '#ff2255';
+    ctx.shadowBlur = 20;
+    ctx.fillStyle = '#ff4477';
+    ctx.font = 'bold 48px Outfit';
+    ctx.fillText('GAME OVER', BASE_W / 2, BASE_H * 0.25);
+    ctx.shadowBlur = 0;
+
+    // Sad dong
+    ctx.font = '60px sans-serif';
+    ctx.fillText('🍆💀', BASE_W / 2, BASE_H * 0.38);
+
+    // Score
+    ctx.fillStyle = '#ffccdd';
+    ctx.font = '22px Outfit';
+    ctx.fillText(`Final Score: ${score}`, BASE_W / 2, BASE_H * 0.52);
+
+    if (score > highScore) {
+      ctx.fillStyle = '#ffdd44';
+      ctx.font = 'bold 18px Outfit';
+      ctx.fillText('🏆 NEW HIGH SCORE! 🏆', BASE_W / 2, BASE_H * 0.60);
+    }
+
+    ctx.fillStyle = '#cc88aa';
+    ctx.font = '14px Outfit';
+    ctx.fillText(`Max Combo: x${maxCombo} | Level Reached: ${level}`, BASE_W / 2, BASE_H * 0.68);
+
+    // Password check
+    if (score >= PASSWORD_TARGET_SCORE) {
+      drawPasswordReveal(BASE_H * 0.76);
+    }
+
+    // Restart
+    const pulse = 0.6 + Math.sin(performance.now() / 400) * 0.4;
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = '#ff88aa';
+    ctx.font = '18px Outfit';
+    ctx.fillText('Click to Play Again', BASE_W / 2, BASE_H * 0.93);
+    ctx.globalAlpha = 1;
+
+    ctx.restore();
+  }
+
+  function drawLevelCompleteScreen() {
+    ctx.fillStyle = 'rgba(10, 0, 15, 0.8)';
+    ctx.fillRect(0, 0, BASE_W, BASE_H);
+
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    ctx.shadowColor = '#44ff88';
+    ctx.shadowBlur = 20;
+    ctx.fillStyle = '#44ff88';
+    ctx.font = 'bold 42px Outfit';
+    ctx.fillText(`LEVEL ${level} COMPLETE!`, BASE_W / 2, BASE_H * 0.3);
+    ctx.shadowBlur = 0;
+
+    ctx.font = '50px sans-serif';
+    ctx.fillText('🍆💦🎉', BASE_W / 2, BASE_H * 0.45);
+
+    ctx.fillStyle = '#ffccdd';
+    ctx.font = '20px Outfit';
+    ctx.fillText(`Score: ${score}`, BASE_W / 2, score >= PASSWORD_TARGET_SCORE ? BASE_H * 0.54 : BASE_H * 0.58);
+
+    // Bonus for level clear
+    ctx.fillStyle = '#ffdd44';
+    ctx.font = '16px Outfit';
+    ctx.fillText(`Level Bonus: +${level * 100}`, BASE_W / 2, score >= PASSWORD_TARGET_SCORE ? BASE_H * 0.61 : BASE_H * 0.66);
+
+    if (score >= PASSWORD_TARGET_SCORE) {
+      drawPasswordReveal(BASE_H * 0.70);
+    }
+
+    const pulse = 0.6 + Math.sin(performance.now() / 400) * 0.4;
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = '#ff88aa';
+    ctx.font = '18px Outfit';
+    ctx.fillText('Click to continue', BASE_W / 2, score >= PASSWORD_TARGET_SCORE ? BASE_H * 0.94 : BASE_H * 0.80);
+    ctx.globalAlpha = 1;
+
+    ctx.restore();
+  }
+
+  function drawPasswordReveal(startY) {
+    ctx.save();
+
+    const boxW = 420;
+    const boxH = 110;
+    const bx = BASE_W / 2 - boxW / 2;
+    const by = startY - 15;
+
+    // Box
+    ctx.fillStyle = 'rgba(28, 12, 18, 0.92)';
+    ctx.beginPath();
+    ctx.roundRect(bx, by, boxW, boxH, 10);
+    ctx.fill();
+
+    ctx.strokeStyle = '#ffdd44';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(bx, by, boxW, boxH, 10);
+    ctx.stroke();
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    ctx.fillStyle = '#fff4cf';
+    ctx.font = 'bold 16px Outfit';
+    ctx.fillText('🎉 You made it!! Congratulations! 🎉', BASE_W / 2, by + 22);
+
+    ctx.fillStyle = '#ffccdd';
+    ctx.font = '13px Outfit';
+    ctx.fillText(`You scored ${score}+ points! Secret password:`, BASE_W / 2, by + 44);
+
+    ctx.fillStyle = '#ffdd44';
+    ctx.font = 'bold 22px monospace';
+    ctx.fillText(SECRET_PASSWORD, BASE_W / 2, by + 68);
+
+    ctx.fillStyle = '#fff4cf';
+    ctx.font = '12px Outfit';
+    ctx.fillText(`Happy Birthday ${BIRTHDAY_NAME}! 🎂🥳`, BASE_W / 2, by + 92);
+
+    ctx.restore();
+  }
+
+  // ----- COLLISION DETECTION -----
+  function ballBrickCollision(ball, brick) {
+    if (!brick.alive) return false;
+
+    // AABB vs circle
+    const closestX = Math.max(brick.x, Math.min(ball.x, brick.x + brick.w));
+    const closestY = Math.max(brick.y, Math.min(ball.y, brick.y + brick.h));
+    const dx = ball.x - closestX;
+    const dy = ball.y - closestY;
+    return (dx * dx + dy * dy) < (ball.radius * ball.radius);
+  }
+
+  function ballPaddleCollision(ball) {
+    const px = paddle.x - paddle.width / 2;
+    const py = paddle.y - paddle.height / 2;
+    const closestX = Math.max(px, Math.min(ball.x, px + paddle.width));
+    const closestY = Math.max(py, Math.min(ball.y, py + paddle.height));
+    const dx = ball.x - closestX;
+    const dy = ball.y - closestY;
+    return (dx * dx + dy * dy) < (ball.radius * ball.radius);
+  }
+
+  // ----- UPDATE -----
+  function update() {
+    if (gameState !== STATE.PLAYING) return;
+
+    // Paddle movement (smooth follow)
+    paddle.x += (paddle.targetX - paddle.x) * 0.2;
+    paddle.x = Math.max(paddle.width / 2, Math.min(BASE_W - paddle.width / 2, paddle.x));
+
+    // Power timer
+    if (paddle.powerTimer > 0) {
+      paddle.powerTimer--;
+      if (paddle.powerTimer <= 0) {
+        paddle.powerType = null;
+        paddle.width = paddle.baseWidth;
+        ballSpeed = BALL_BASE_SPEED;
+        balls.forEach(b => b.fireball = false);
+      }
+    }
+
+    // Sticky ball follows paddle
+    if (paddle.sticky && paddle.stickyBall) {
+      paddle.stickyBall.x = paddle.x;
+      paddle.stickyBall.y = paddle.y - BALL_RADIUS - paddle.height / 2;
+    }
+
+    // Update balls
+    const deadBalls = [];
+    balls.forEach((ball, idx) => {
+      if (paddle.sticky && ball === paddle.stickyBall) return;
+
+      // Trail
+      ball.trail.push({ x: ball.x, y: ball.y });
+      if (ball.trail.length > 8) ball.trail.shift();
+
+      ball.x += ball.dx;
+      ball.y += ball.dy;
+
+      // Wall collisions
+      if (ball.x - ball.radius < 0) {
+        ball.x = ball.radius;
+        ball.dx = Math.abs(ball.dx);
+      }
+      if (ball.x + ball.radius > BASE_W) {
+        ball.x = BASE_W - ball.radius;
+        ball.dx = -Math.abs(ball.dx);
+      }
+      if (ball.y - ball.radius < 0) {
+        ball.y = ball.radius;
+        ball.dy = Math.abs(ball.dy);
+      }
+
+      // Bottom - ball lost
+      if (ball.y + ball.radius > BASE_H + 20) {
+        deadBalls.push(idx);
+        return;
+      }
+
+      // Paddle collision
+      if (ball.dy > 0 && ballPaddleCollision(ball)) {
+        const hitPos = (ball.x - paddle.x) / (paddle.width / 2); // -1 to 1
+        const angle = hitPos * (Math.PI / 3); // Max 60 degree deflection
+        const speed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+        ball.dx = Math.sin(angle) * speed;
+        ball.dy = -Math.cos(angle) * speed;
+        ball.y = paddle.y - paddle.height / 2 - ball.radius;
+
+        // Ensure ball always goes up
+        if (ball.dy > -1) ball.dy = -1;
+
+        combo = 0;
+        spawnParticles(ball.x, ball.y, '#ffaacc', 5, 2);
+        sfxBounce();
+      }
+
+      // Brick collisions
+      bricks.forEach(brick => {
+        if (!brick.alive) return;
+        if (ballBrickCollision(ball, brick)) {
+          // Damage brick
+          brick.hp--;
+          brick.shakeTimer = 8;
+          combo++;
+          maxCombo = Math.max(maxCombo, combo);
+          shakeAmount = Math.min(4, shakeAmount + 1.5);
+
+          const points = (10 + level * 5) * Math.min(combo, 10);
+          score += points;
+          checkPasswordUnlock();
+
+          spawnParticles(ball.x, ball.y, brick.color, 8, 4);
+          if (combo > 2) spawnFloatingText(ball.x, ball.y - 10, `x${combo}`, '#ffdd44', 12 + Math.min(combo, 8));
+          sfxHit();
+
+          if (brick.type === 'sperm') {
+            spawnSpermParticles(brick.x + brick.w / 2, brick.y + brick.h / 2);
+          }
+
+          if (brick.hp <= 0) {
+            brick.alive = false;
+            spawnParticles(brick.x + brick.w / 2, brick.y + brick.h / 2, brick.color, 15, 5);
+            spawnPowerup(brick.x + brick.w / 2, brick.y + brick.h / 2);
+            spawnFloatingText(brick.x + brick.w / 2, brick.y, `+${points}`, '#fff', 13);
+            sfxBreak();
+            shakeAmount = Math.min(6, shakeAmount + 2);
+
+            if (brick.type === 'sperm') {
+              spawnSpermParticles(brick.x + brick.w / 2, brick.y + brick.h / 2);
+            }
+          }
+
+          // Reflect ball (unless fireball)
+          if (!ball.fireball) {
+            // Determine reflection side
+            const overlapLeft = (ball.x + ball.radius) - brick.x;
+            const overlapRight = (brick.x + brick.w) - (ball.x - ball.radius);
+            const overlapTop = (ball.y + ball.radius) - brick.y;
+            const overlapBottom = (brick.y + brick.h) - (ball.y - ball.radius);
+            const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+
+            if (minOverlap === overlapLeft || minOverlap === overlapRight) {
+              ball.dx = -ball.dx;
+            } else {
+              ball.dy = -ball.dy;
+            }
+          }
+        }
+      });
+    });
+
+    // Remove dead balls (from bottom)
+    deadBalls.sort((a, b) => b - a).forEach(idx => balls.splice(idx, 1));
+
+    // All balls lost
+    if (balls.length === 0) {
+      lives--;
+      combo = 0;
+      sfxDie();
+      shakeAmount = 8;
+      if (lives <= 0) {
+        gameState = STATE.GAME_OVER;
+        if (score > highScore) {
+          highScore = score;
+          localStorage.setItem('dongbreaker_hs', highScore.toString());
+        }
+      } else {
+        resetBall();
+      }
+    }
+
+    // Update brick shake
+    bricks.forEach(b => {
+      if (b.shakeTimer > 0) b.shakeTimer--;
+    });
+
+    // Update powerups
+    powerups.forEach((pu, idx) => {
+      pu.y += pu.vy;
+      pu.rotation += 0.03;
+
+      // Paddle catch
+      if (pu.y + pu.radius > paddle.y - paddle.height / 2 &&
+          pu.y - pu.radius < paddle.y + paddle.height / 2 &&
+          pu.x > paddle.x - paddle.width / 2 &&
+          pu.x < paddle.x + paddle.width / 2) {
+        applyPowerup(pu.type);
+        spawnParticles(pu.x, pu.y, getPowerupColor(pu.type), 12, 3);
+        sfxPowerup();
+        spawnFloatingText(pu.x, pu.y - 15, pu.type.toUpperCase() + '!', getPowerupColor(pu.type), 16);
+        pu.y = BASE_H + 100; // Mark for removal
+      }
+    });
+    powerups = powerups.filter(pu => pu.y < BASE_H + 50);
+
+    // Update particles
+    particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.05; // Gravity
+      p.life -= p.decay;
+    });
+    particles = particles.filter(p => p.life > 0);
+
+    // Update floating texts
+    floatingTexts.forEach(ft => {
+      ft.y += ft.vy;
+      ft.life -= 0.02;
+    });
+    floatingTexts = floatingTexts.filter(ft => ft.life > 0);
+
+    // Update screen shake
+    shakeAmount *= shakeDecay;
+
+    // Level complete check
+    if (bricks.every(b => !b.alive)) {
+      score += level * 100; // Level bonus
+      checkPasswordUnlock();
+      gameState = STATE.LEVEL_COMPLETE;
+      sfxLevelUp();
+      // Celebration particles
+      for (let i = 0; i < 40; i++) {
+        spawnParticles(
+          Math.random() * BASE_W,
+          Math.random() * BASE_H * 0.5,
+          BRICK_COLORS[Math.floor(Math.random() * BRICK_COLORS.length)],
+          3, 4
+        );
+      }
+    }
+  }
+
+  // ----- RENDER -----
+  function render() {
+    ctx.save();
+    // Apply screen shake
+    if (shakeAmount > 0.5) {
+      ctx.translate(
+        (Math.random() - 0.5) * shakeAmount * 2,
+        (Math.random() - 0.5) * shakeAmount * 2
+      );
+    }
+    ctx.clearRect(-10, -10, BASE_W + 20, BASE_H + 20);
+
+    if (gameState === STATE.MENU) {
+      drawMenuScreen();
+      ctx.restore();
+      return;
+    }
+
+    drawBackground();
+
+    if (gameState === STATE.PLAYING || gameState === STATE.GAME_OVER || gameState === STATE.LEVEL_COMPLETE) {
+      // Draw bricks
+      bricks.forEach(drawBrick);
+
+      // Draw powerups
+      drawPowerups();
+
+      // Draw paddle
+      drawPaddle();
+
+      // Draw balls
+      drawBalls();
+
+      // Draw floating texts
+      drawFloatingTexts();
+
+      // Draw particles
+      drawParticles();
+
+      // HUD
+      drawHUD();
+    }
+
+    if (gameState === STATE.GAME_OVER) {
+      drawGameOverScreen();
+    }
+
+    if (gameState === STATE.LEVEL_COMPLETE) {
+      drawLevelCompleteScreen();
+    }
+    ctx.restore();
+  }
+
+  // ----- GAME LOOP -----
+  let lastTime = 0;
+
+  function gameLoop(timestamp) {
+    const dt = Math.min(timestamp - lastTime, 32); // Cap delta
+    lastTime = timestamp;
+
+    update();
+    render();
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  // ----- INPUT -----
+  function getCanvasPos(clientX, clientY) {
+    return {
+      x: (clientX - offsetX) / scale,
+      y: (clientY - offsetY) / scale
+    };
+  }
+
+  canvas.addEventListener('mousemove', (e) => {
+    const pos = getCanvasPos(e.clientX, e.clientY);
+    paddle.targetX = pos.x;
+  });
+
+  canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const pos = getCanvasPos(touch.clientX, touch.clientY);
+    paddle.targetX = pos.x;
+  }, { passive: false });
+
+  function handleClick() {
+    initAudio();
+    if (gameState === STATE.MENU) {
+      startGame();
+    } else if (gameState === STATE.PLAYING) {
+      launchBall();
+    } else if (gameState === STATE.GAME_OVER) {
+      startGame();
+    } else if (gameState === STATE.LEVEL_COMPLETE) {
+      nextLevel();
+    }
+  }
+
+  canvas.addEventListener('click', handleClick);
+  canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const pos = getCanvasPos(touch.clientX, touch.clientY);
+    paddle.targetX = pos.x;
+    handleClick();
+  }, { passive: false });
+
+  // Keyboard support
+  const keys = {};
+  document.addEventListener('keydown', (e) => {
+    keys[e.key] = true;
+    if (e.key === ' ' || e.key === 'Enter') {
+      handleClick();
+    }
+  });
+  document.addEventListener('keyup', (e) => {
+    keys[e.key] = false;
+  });
+
+  // Keyboard paddle control
+  function keyboardUpdate() {
+    if (keys['ArrowLeft'] || keys['a']) {
+      paddle.targetX -= 8;
+    }
+    if (keys['ArrowRight'] || keys['d']) {
+      paddle.targetX += 8;
+    }
+    requestAnimationFrame(keyboardUpdate);
+  }
+  keyboardUpdate();
+
+  // ----- GAME FLOW -----
+  function startGame() {
+    score = 0;
+    lives = 3;
+    level = 1;
+    combo = 0;
+    maxCombo = 0;
+    ballSpeed = BALL_BASE_SPEED;
+    paddle.width = paddle.baseWidth;
+    paddle.powerType = null;
+    paddle.powerTimer = 0;
+    powerups = [];
+    particles = [];
+    passwordRevealed = false;
+
+    generateLevel(level);
+    resetBall();
+    gameState = STATE.PLAYING;
+  }
+
+  function nextLevel() {
+    level++;
+    ballSpeed = BALL_BASE_SPEED + level * 0.3;
+    paddle.width = paddle.baseWidth;
+    paddle.powerType = null;
+    paddle.powerTimer = 0;
+    powerups = [];
+    particles = [];
+
+    generateLevel(level);
+    resetBall();
+    gameState = STATE.PLAYING;
+  }
+
+  // ----- COLOR UTILS -----
+  function lightenColor(hex, amount) {
+    const num = parseInt(hex.slice(1), 16);
+    const r = Math.min(255, (num >> 16) + amount);
+    const g = Math.min(255, ((num >> 8) & 0xff) + amount);
+    const b = Math.min(255, (num & 0xff) + amount);
+    return `rgb(${r},${g},${b})`;
+  }
+
+  function darkenColor(hex, amount) {
+    const num = parseInt(hex.slice(1), 16);
+    const r = Math.max(0, (num >> 16) - amount);
+    const g = Math.max(0, ((num >> 8) & 0xff) - amount);
+    const b = Math.max(0, (num & 0xff) - amount);
+    return `rgb(${r},${g},${b})`;
+  }
+
+  // ----- INIT -----
+  function init() {
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // Hide loading
+    setTimeout(() => {
+      document.getElementById('loading-modal').classList.add('hidden');
+    }, 500);
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

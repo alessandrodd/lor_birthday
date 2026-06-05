@@ -1,0 +1,18 @@
+{
+  "name": "Dong Breaker",
+  "short_name": "Dong Breaker",
+  "description": "A ridiculous birthday Arkanoid clone for Lorenzo",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "background_color": "#0a0a12",
+  "theme_color": "#1a0a2e",
+  "orientation": "landscape",
+  "icons": [
+    {
+      "src": "./favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
