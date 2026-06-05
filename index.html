@@ -195,13 +195,44 @@
     osc.stop(audioCtx.currentTime + 0.3);
     playNoise(0.08, 0.06);
   }
-  // Sexy powerup jingle
-  function sfxPowerup() {
-    playTone(440, 0.08, 'sine', 0.12);
-    setTimeout(() => playTone(554, 0.08, 'sine', 0.12), 60);
-    setTimeout(() => playTone(659, 0.08, 'sine', 0.12), 120);
-    setTimeout(() => playTone(880, 0.15, 'sine', 0.15), 180);
-    setTimeout(() => playNoise(0.1, 0.08), 200);
+  function sfxPowerup(type) {
+    switch (type) {
+      case 'viagra':
+        playTone(150, 0.08, 'triangle', 0.11);
+        setTimeout(() => playTone(230, 0.10, 'triangle', 0.12), 70);
+        setTimeout(() => playTone(340, 0.18, 'sine', 0.13), 150);
+        break;
+      case 'orgy':
+        [360, 460, 560, 690].forEach((freq, i) => {
+          setTimeout(() => playTone(freq, 0.09, i % 2 ? 'sine' : 'triangle', 0.1), i * 45);
+        });
+        setTimeout(() => playNoise(0.08, 0.07), 120);
+        break;
+      case 'boner':
+        playNoise(0.05, 0.2);
+        playTone(220, 0.06, 'sawtooth', 0.1);
+        setTimeout(() => playTone(660, 0.12, 'square', 0.11), 65);
+        break;
+      case 'cockring':
+        playTone(880, 0.16, 'sine', 0.12);
+        setTimeout(() => playTone(1320, 0.12, 'sine', 0.09), 70);
+        setTimeout(() => playTone(1760, 0.08, 'triangle', 0.07), 150);
+        break;
+      case 'moneyshot':
+        playNoise(0.16, 0.2);
+        setTimeout(() => playNoise(0.10, 0.14), 70);
+        setTimeout(() => playTone(760, 0.16, 'sine', 0.1), 95);
+        break;
+      case 'blueballs':
+        playTone(620, 0.08, 'sine', 0.09);
+        setTimeout(() => playTone(390, 0.12, 'sine', 0.1), 70);
+        setTimeout(() => playTone(210, 0.20, 'triangle', 0.1), 160);
+        setTimeout(() => playNoise(0.08, 0.05), 190);
+        break;
+      default:
+        playTone(440, 0.08, 'sine', 0.12);
+        setTimeout(() => playTone(660, 0.12, 'sine', 0.12), 80);
+    }
   }
   // Sad deflating / fart on death
   function sfxDie() {
@@ -237,11 +268,6 @@
     playTone(160, 0.05, 'triangle', 0.08);
     setTimeout(() => playTone(420, 0.08, 'sine', 0.1), 45);
   }
-  function sfxMoneyshot() {
-    playNoise(0.18, 0.22);
-    setTimeout(() => playNoise(0.12, 0.16), 80);
-    setTimeout(() => playTone(760, 0.16, 'sine', 0.1), 90);
-  }
   function sfxUnlock() {
     [523, 659, 784, 1046].forEach((freq, i) => {
       setTimeout(() => playTone(freq, 0.16, 'sine', 0.13), i * 90);
@@ -257,6 +283,7 @@
   // ----- SCREEN SHAKE -----
   let shakeAmount = 0;
   let shakeDecay = 0.9;
+  let gameOverAt = 0;
 
   // ----- CANVAS SETUP -----
   const canvas = document.getElementById('game-canvas');
@@ -644,7 +671,6 @@
 
     if (targets.length === 0) return;
 
-    sfxMoneyshot();
     shakeAmount = Math.min(10, shakeAmount + 5);
     targets.forEach(brick => {
       brick.alive = false;
@@ -1585,7 +1611,11 @@
     // Bonus for level clear
     ctx.fillStyle = '#ffdd44';
     ctx.font = '16px Outfit';
-    ctx.fillText(`Level Bonus: +${level * 100}`, BASE_W / 2, score >= PASSWORD_TARGET_SCORE ? BASE_H * 0.61 : BASE_H * 0.66);
+    ctx.fillText(`Level Bonus: +${level * 100}`, BASE_W / 2, score >= PASSWORD_TARGET_SCORE ? BASE_H * 0.58 : BASE_H * 0.66);
+
+    ctx.fillStyle = '#44ff88';
+    ctx.font = 'bold 16px Outfit';
+    ctx.fillText('Life Restored: +1', BASE_W / 2, score >= PASSWORD_TARGET_SCORE ? BASE_H * 0.64 : BASE_H * 0.72);
 
     if (score >= PASSWORD_TARGET_SCORE) {
       drawPasswordReveal(BASE_H * 0.70);
@@ -1595,7 +1625,7 @@
     ctx.globalAlpha = pulse;
     ctx.fillStyle = '#ff88aa';
     ctx.font = '18px Outfit';
-    ctx.fillText('Click to continue', BASE_W / 2, score >= PASSWORD_TARGET_SCORE ? BASE_H * 0.94 : BASE_H * 0.80);
+    ctx.fillText('Click to continue', BASE_W / 2, score >= PASSWORD_TARGET_SCORE ? BASE_H * 0.94 : BASE_H * 0.84);
     ctx.globalAlpha = 1;
 
     ctx.restore();
@@ -1805,6 +1835,7 @@
       shakeAmount = 8;
       if (lives <= 0) {
         gameState = STATE.GAME_OVER;
+        gameOverAt = performance.now();
         if (score > highScore) {
           highScore = score;
           localStorage.setItem('dongbreaker_hs', highScore.toString());
@@ -1831,7 +1862,7 @@
           pu.x < paddle.x + paddle.width / 2) {
         applyPowerup(pu.type);
         spawnParticles(pu.x, pu.y, getPowerupColor(pu.type), 12, 3);
-        sfxPowerup();
+        sfxPowerup(pu.type);
         spawnFloatingText(pu.x, pu.y - 15, pu.type.toUpperCase() + '!', getPowerupColor(pu.type), 16);
         pu.y = BASE_H + 100; // Mark for removal
       }
@@ -1860,6 +1891,8 @@
     // Level complete check
     if (bricks.every(b => !b.alive)) {
       score += level * 100; // Level bonus
+      lives += 1;
+      spawnFloatingText(BASE_W / 2, BASE_H * 0.56, '+1 LIFE', '#44ff88', 22);
       checkPasswordUnlock();
       gameState = STATE.LEVEL_COMPLETE;
       sfxLevelUp();
@@ -1878,6 +1911,14 @@
   // ----- RENDER -----
   function render() {
     ctx.save();
+    if (gameState === STATE.GAME_OVER && gameOverAt > 0) {
+      const gameOverElapsed = performance.now() - gameOverAt;
+      if (gameOverElapsed > 5000) {
+        shakeAmount = 0;
+      } else {
+        shakeAmount *= 0.96;
+      }
+    }
     // Apply screen shake
     if (shakeAmount > 0.5) {
       ctx.translate(
@@ -2014,6 +2055,7 @@
     level = 1;
     combo = 0;
     maxCombo = 0;
+    gameOverAt = 0;
     applyLevelDifficulty();
     paddle.powerType = null;
     paddle.powerTimer = 0;
