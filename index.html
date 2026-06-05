@@ -284,6 +284,7 @@
   let shakeAmount = 0;
   let shakeDecay = 0.9;
   let gameOverAt = 0;
+  let levelCompleteAt = 0;
 
   // ----- CANVAS SETUP -----
   const canvas = document.getElementById('game-canvas');
@@ -1895,6 +1896,7 @@
       spawnFloatingText(BASE_W / 2, BASE_H * 0.56, '+1 LIFE', '#44ff88', 22);
       checkPasswordUnlock();
       gameState = STATE.LEVEL_COMPLETE;
+      levelCompleteAt = performance.now();
       sfxLevelUp();
       // Celebration particles
       for (let i = 0; i < 40; i++) {
@@ -1917,6 +1919,13 @@
         shakeAmount = 0;
       } else {
         shakeAmount *= 0.96;
+      }
+    } else if (gameState === STATE.LEVEL_COMPLETE && levelCompleteAt > 0) {
+      const levelCompleteElapsed = performance.now() - levelCompleteAt;
+      if (levelCompleteElapsed > 2500) {
+        shakeAmount = 0;
+      } else {
+        shakeAmount *= 0.88;
       }
     }
     // Apply screen shake
@@ -2056,6 +2065,7 @@
     combo = 0;
     maxCombo = 0;
     gameOverAt = 0;
+    levelCompleteAt = 0;
     applyLevelDifficulty();
     paddle.powerType = null;
     paddle.powerTimer = 0;
@@ -2070,6 +2080,7 @@
 
   function nextLevel() {
     level++;
+    levelCompleteAt = 0;
     applyLevelDifficulty();
     paddle.powerType = null;
     paddle.powerTimer = 0;
