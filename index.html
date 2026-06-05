@@ -356,13 +356,13 @@
 
   // ----- BRICKS -----
   let bricks = [];
-  const BRICK_ROWS = 6;
+  const BRICK_ROWS = 8;
   const BRICK_COLS = 12;
   const BRICK_W = 58;
   const BRICK_H = 22;
   const BRICK_PAD = 4;
   const BRICK_OFFSET_X = 80;
-  const BRICK_OFFSET_Y = 50;
+  const BRICK_OFFSET_Y = 42;
 
   // Brick types: 'normal', 'hard', 'balls' (has balls on it), 'sperm'
   const BRICK_COLORS = [
@@ -371,89 +371,148 @@
     '#ffab91', '#ff8a65'
   ];
 
+  const LEVEL_PATTERNS = [
+    [
+      '............',
+      '..11111111..',
+      '.1111111111.',
+      '.1111111111.',
+      '..11111111..',
+      '............',
+      '............',
+      '............'
+    ],
+    [
+      '....2222....',
+      '...211112...',
+      '...211112...',
+      '....1111....',
+      '....1111....',
+      '..11111111..',
+      '.1111111111.',
+      '............'
+    ],
+    [
+      '.222....222.',
+      '.222....222.',
+      '.111....111.',
+      '.111....111.',
+      '..11111111..',
+      '...111111...',
+      '....1111....',
+      '............'
+    ],
+    [
+      '333333333333',
+      '.2222222222.',
+      '..22222222..',
+      '...111111...',
+      '....1111....',
+      '...111111...',
+      '..11111111..',
+      '.1111111111.'
+    ],
+    [
+      '..33333333..',
+      '.3322222233.',
+      '332211112233',
+      '322111111223',
+      '322111111223',
+      '332211112233',
+      '.3322222233.',
+      '..33333333..'
+    ],
+    [
+      '3.3.3.3.3.3.',
+      '.3.3.3.3.3.3',
+      '222222222222',
+      '.2222222222.',
+      '..11111111..',
+      '.2222222222.',
+      '222222222222',
+      '.3.3.3.3.3.3'
+    ],
+    [
+      '4444....4444',
+      '4334....4334',
+      '422222222224',
+      '.3333333333.',
+      '..22222222..',
+      '.3333333333.',
+      '422222222224',
+      '4444....4444'
+    ],
+    [
+      '444444444444',
+      '4.33333333.4',
+      '43.222222.34',
+      '432.1111.234',
+      '432.1111.234',
+      '43.222222.34',
+      '4.33333333.4',
+      '444444444444'
+    ],
+    [
+      '545454545454',
+      '454545454545',
+      '333333333333',
+      '3.22222222.3',
+      '33.222222.33',
+      '333333333333',
+      '454545454545',
+      '545454545454'
+    ],
+    [
+      '555555555555',
+      '544444444445',
+      '543333333345',
+      '543222222345',
+      '543222222345',
+      '543333333345',
+      '544444444445',
+      '555555555555'
+    ]
+  ];
+
+  function getLevelSpeed(lvl) {
+    return BALL_BASE_SPEED + (lvl - 1) * 0.55 + Math.max(0, lvl - 6) * 0.25;
+  }
+
+  function getLevelPaddleWidth(lvl) {
+    return Math.max(76, 124 - (lvl - 1) * 5);
+  }
+
+  function applyLevelDifficulty() {
+    ballSpeed = getLevelSpeed(level);
+    paddle.baseWidth = getLevelPaddleWidth(level);
+    paddle.width = paddle.baseWidth;
+  }
+
   function generateLevel(lvl) {
     bricks = [];
-    const patterns = [
-      // Level 1: Simple rows
-      () => {
-        for (let r = 0; r < BRICK_ROWS; r++) {
-          for (let c = 0; c < BRICK_COLS; c++) {
-            bricks.push(makeBrick(r, c, r < 2 ? 2 : 1, BRICK_COLORS[r % BRICK_COLORS.length]));
-          }
-        }
-      },
-      // Level 2: Phallic pattern
-      () => {
-        const pattern = [
-          '....XXXX....',
-          '...XXXXXX...',
-          '...XXXXXX...',
-          '....XXXX....',
-          '....XXXX....',
-          '.XXXXXXXXXX.',
-        ];
-        for (let r = 0; r < pattern.length; r++) {
-          for (let c = 0; c < pattern[r].length; c++) {
-            if (pattern[r][c] === 'X') {
-              const hp = r < 2 ? 2 : 1;
-              bricks.push(makeBrick(r, c, hp, BRICK_COLORS[(r + c) % BRICK_COLORS.length]));
-            }
-          }
-        }
-      },
-      // Level 3: Dual towers
-      () => {
-        for (let r = 0; r < BRICK_ROWS; r++) {
-          for (let c = 0; c < BRICK_COLS; c++) {
-            if ((c >= 1 && c <= 3) || (c >= 8 && c <= 10)) {
-              bricks.push(makeBrick(r, c, r < 1 ? 3 : (r < 3 ? 2 : 1),
-                BRICK_COLORS[(r * 3 + c) % BRICK_COLORS.length]));
-            }
-          }
-        }
-      },
-      // Level 4: V shape
-      () => {
-        for (let r = 0; r < BRICK_ROWS; r++) {
-          for (let c = 0; c < BRICK_COLS; c++) {
-            if (c >= r && c < BRICK_COLS - r) {
-              bricks.push(makeBrick(r, c, r < 2 ? 3 : (r < 4 ? 2 : 1),
-                BRICK_COLORS[(r + c * 2) % BRICK_COLORS.length]));
-            }
-          }
-        }
-      },
-      // Level 5: Diamond
-      () => {
-        const cx = 5.5, cy = 2.5;
-        for (let r = 0; r < BRICK_ROWS; r++) {
-          for (let c = 0; c < BRICK_COLS; c++) {
-            const dist = Math.abs(c - cx) + Math.abs(r - cy);
-            if (dist <= 4) {
-              bricks.push(makeBrick(r, c, dist <= 2 ? 3 : (dist <= 3 ? 2 : 1),
-                BRICK_COLORS[(r + c) % BRICK_COLORS.length]));
-            }
-          }
-        }
-      },
-      // Level 6+: Full hard grid
-      () => {
-        for (let r = 0; r < BRICK_ROWS; r++) {
-          for (let c = 0; c < BRICK_COLS; c++) {
-            bricks.push(makeBrick(r, c, Math.min(3, 1 + Math.floor(lvl / 3)),
-              BRICK_COLORS[(r * c + lvl) % BRICK_COLORS.length]));
-          }
-        }
+    const pattern = LEVEL_PATTERNS[Math.min(lvl - 1, LEVEL_PATTERNS.length - 1)];
+    const extraHp = Math.floor(Math.max(0, lvl - LEVEL_PATTERNS.length) / 2);
+    const lateHpBump = Math.floor(Math.max(0, lvl - 5) / 4);
+
+    pattern.forEach((row, r) => {
+      for (let c = 0; c < row.length; c++) {
+        const marker = row[c];
+        if (marker === '.') continue;
+        const markedHp = parseInt(marker, 10);
+        const hp = Math.min(8, markedHp + extraHp + lateHpBump);
+        bricks.push(makeBrick(r, c, hp, BRICK_COLORS[(r * 2 + c + lvl) % BRICK_COLORS.length]));
       }
-    ];
+    });
 
-    const idx = Math.min(lvl - 1, patterns.length - 1);
-    patterns[idx]();
-
-    // Sprinkle some special bricks
-    bricks.forEach((b, i) => {
-      if (Math.random() < 0.12) b.type = 'balls';
-      if (Math.random() < 0.08) b.type = 'sperm';
+    const ballsChance = Math.min(0.24, 0.10 + lvl * 0.012);
+    const spermChance = Math.min(0.18, 0.07 + lvl * 0.01);
+    bricks.forEach(b => {
+      const roll = Math.random();
+      if (roll < ballsChance) {
+        b.type = 'balls';
+      } else if (roll < ballsChance + spermChance) {
+        b.type = 'sperm';
+      }
     });
   }
 
@@ -488,7 +547,8 @@
   };
 
   function spawnPowerup(x, y) {
-    if (Math.random() > 0.28) return; // 28% chance
+    const chance = Math.max(0.12, 0.30 - (level - 1) * 0.018);
+    if (Math.random() > chance) return;
     const type = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
     powerups.push({ x, y, type, radius: 15, vy: POWERUP_SPEED, rotation: 0 });
   }
@@ -530,7 +590,7 @@
         break;
       }
       case 'blueballs': { // Slow down
-        ballSpeed = BALL_BASE_SPEED * 0.6;
+        ballSpeed = getLevelSpeed(level) * 0.62;
         paddle.powerType = 'blueballs';
         paddle.powerTimer = 420;
         break;
@@ -758,48 +818,59 @@
 
     // Type indicators
     if (brick.type === 'balls') {
-      // Draw big explicit balls/scrotum
       const bcx = bx + brick.w / 2;
       const bcy = by + brick.h / 2;
-      const bs = Math.min(brick.h * 0.42, 9);
+      const bs = Math.min(brick.h * 0.58, 12);
+
+      // Short shaft/base so the marker reads anatomically, not as two dots.
+      ctx.fillStyle = lightenColor(brick.color, 24);
+      ctx.beginPath();
+      ctx.roundRect(bcx - bs * 0.35, bcy - bs * 1.02, bs * 0.7, bs * 0.74, 3);
+      ctx.fill();
+      ctx.strokeStyle = darkenColor(brick.color, 45);
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.roundRect(bcx - bs * 0.35, bcy - bs * 1.02, bs * 0.7, bs * 0.74, 3);
+      ctx.stroke();
+
       // Sack background
       ctx.fillStyle = darkenColor(brick.color, 30);
       ctx.beginPath();
-      ctx.ellipse(bcx, bcy + 1, bs * 1.6, bs * 1.05, 0, 0, Math.PI * 2);
+      ctx.ellipse(bcx, bcy + bs * 0.18, bs * 1.75, bs * 1.05, 0, 0, Math.PI * 2);
       ctx.fill();
       // Left ball
       ctx.fillStyle = lightenColor(brick.color, -10);
       ctx.beginPath();
-      ctx.ellipse(bcx - bs * 0.6, bcy + 1, bs * 0.85, bs * 0.95, -0.15, 0, Math.PI * 2);
+      ctx.ellipse(bcx - bs * 0.58, bcy + bs * 0.18, bs * 0.92, bs * 1.02, -0.18, 0, Math.PI * 2);
       ctx.fill();
       // Right ball
       ctx.beginPath();
-      ctx.ellipse(bcx + bs * 0.6, bcy + 1, bs * 0.85, bs * 0.95, 0.15, 0, Math.PI * 2);
+      ctx.ellipse(bcx + bs * 0.58, bcy + bs * 0.18, bs * 0.92, bs * 1.02, 0.18, 0, Math.PI * 2);
       ctx.fill();
       // Outlines
       ctx.strokeStyle = darkenColor(brick.color, 50);
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.ellipse(bcx - bs * 0.6, bcy + 1, bs * 0.85, bs * 0.95, -0.15, 0, Math.PI * 2);
+      ctx.ellipse(bcx - bs * 0.58, bcy + bs * 0.18, bs * 0.92, bs * 1.02, -0.18, 0, Math.PI * 2);
       ctx.stroke();
       ctx.beginPath();
-      ctx.ellipse(bcx + bs * 0.6, bcy + 1, bs * 0.85, bs * 0.95, 0.15, 0, Math.PI * 2);
+      ctx.ellipse(bcx + bs * 0.58, bcy + bs * 0.18, bs * 0.92, bs * 1.02, 0.18, 0, Math.PI * 2);
       ctx.stroke();
       // Center crease
       ctx.strokeStyle = darkenColor(brick.color, 45);
       ctx.lineWidth = 0.8;
       ctx.beginPath();
-      ctx.moveTo(bcx, bcy - bs * 0.8);
-      ctx.quadraticCurveTo(bcx + 0.5, bcy, bcx, bcy + bs * 0.8);
+      ctx.moveTo(bcx, bcy - bs * 0.68);
+      ctx.quadraticCurveTo(bcx + 0.5, bcy + bs * 0.18, bcx, bcy + bs * 1.05);
       ctx.stroke();
       // Wrinkle lines
       ctx.strokeStyle = darkenColor(brick.color, 35);
       ctx.lineWidth = 0.5;
-      for (let w = 0; w < 3; w++) {
-        const wy = bcy - bs * 0.3 + w * bs * 0.35;
+      for (let w = 0; w < 4; w++) {
+        const wy = bcy - bs * 0.28 + w * bs * 0.32;
         ctx.beginPath();
-        ctx.moveTo(bcx - bs * 0.5, wy);
-        ctx.quadraticCurveTo(bcx, wy + 1.5, bcx + bs * 0.5, wy);
+        ctx.moveTo(bcx - bs * 0.82, wy);
+        ctx.quadraticCurveTo(bcx, wy + 1.8, bcx + bs * 0.82, wy);
         ctx.stroke();
       }
     } else if (brick.type === 'sperm') {
@@ -927,58 +998,81 @@
     ctx.ellipse(shaftRight + 2, cy, 2, shaftH * 0.38, 0, -Math.PI / 2, Math.PI / 2);
     ctx.stroke();
 
-    // === BALLS (left side) ===
-    const ballSize = shaftH * 0.68;
-    const ballsX = shaftLeft - 2;
+    // === SCROTUM / TESTICLES (left side) ===
+    const ballSize = Math.max(17, shaftH * 1.08);
+    const ballsX = shaftLeft - ballSize * 0.58;
+    const sackCy = cy + shaftH * 0.42;
+
+    // Neck that visibly attaches the sack to the shaft.
+    const neckGrad = ctx.createLinearGradient(0, cy - shaftH * 0.25, 0, sackCy + ballSize * 0.3);
+    neckGrad.addColorStop(0, skinBase);
+    neckGrad.addColorStop(1, skinDark);
+    ctx.fillStyle = neckGrad;
+    ctx.beginPath();
+    ctx.ellipse(shaftLeft - ballSize * 0.1, cy + shaftH * 0.12, ballSize * 0.45, ballSize * 0.5, -0.25, 0, Math.PI * 2);
+    ctx.fill();
 
     // Scrotum sack background
     ctx.fillStyle = skinDark;
     ctx.beginPath();
-    ctx.ellipse(ballsX - ballSize * 0.3, cy, ballSize * 1.1, ballSize * 1.15, 0, 0, Math.PI * 2);
+    ctx.ellipse(ballsX, sackCy, ballSize * 1.22, ballSize * 0.92, -0.05, 0, Math.PI * 2);
     ctx.fill();
 
     // Left testicle
-    const ltGrad = ctx.createRadialGradient(ballsX - ballSize * 0.6, cy - 1, 1, ballsX - ballSize * 0.5, cy, ballSize * 0.65);
+    const ltGrad = ctx.createRadialGradient(ballsX - ballSize * 0.45, sackCy - ballSize * 0.25, 1, ballsX - ballSize * 0.48, sackCy, ballSize * 0.9);
     ltGrad.addColorStop(0, skinLight);
     ltGrad.addColorStop(1, skinBase);
     ctx.fillStyle = ltGrad;
     ctx.beginPath();
-    ctx.ellipse(ballsX - ballSize * 0.5, cy - ballSize * 0.15, ballSize * 0.55, ballSize * 0.65, -0.2, 0, Math.PI * 2);
+    ctx.ellipse(ballsX - ballSize * 0.48, sackCy, ballSize * 0.62, ballSize * 0.78, -0.22, 0, Math.PI * 2);
     ctx.fill();
 
     // Right testicle
-    const rtGrad = ctx.createRadialGradient(ballsX - ballSize * 0.1, cy + 1, 1, ballsX - ballSize * 0.1, cy, ballSize * 0.6);
+    const rtGrad = ctx.createRadialGradient(ballsX + ballSize * 0.28, sackCy - ballSize * 0.22, 1, ballsX + ballSize * 0.32, sackCy, ballSize * 0.86);
     rtGrad.addColorStop(0, skinLight);
     rtGrad.addColorStop(1, skinBase);
     ctx.fillStyle = rtGrad;
     ctx.beginPath();
-    ctx.ellipse(ballsX - ballSize * 0.1, cy + ballSize * 0.12, ballSize * 0.5, ballSize * 0.6, 0.2, 0, Math.PI * 2);
+    ctx.ellipse(ballsX + ballSize * 0.34, sackCy + ballSize * 0.05, ballSize * 0.62, ballSize * 0.78, 0.2, 0, Math.PI * 2);
     ctx.fill();
 
-    // Sack outline
-    ctx.strokeStyle = skinDark;
-    ctx.lineWidth = 1;
+    // Sack outline and seam
+    ctx.strokeStyle = darkenColor(skinDark, 20);
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.ellipse(ballsX - ballSize * 0.3, cy, ballSize * 1.1, ballSize * 1.15, 0, 0, Math.PI * 2);
+    ctx.ellipse(ballsX, sackCy, ballSize * 1.22, ballSize * 0.92, -0.05, 0, Math.PI * 2);
     ctx.stroke();
-    // Scrotum crease
-    ctx.strokeStyle = skinDark;
-    ctx.lineWidth = 1;
-    ctx.globalAlpha = 0.5;
+    ctx.strokeStyle = darkenColor(skinDark, 25);
+    ctx.lineWidth = 1.2;
+    ctx.globalAlpha = 0.62;
     ctx.beginPath();
-    ctx.moveTo(ballsX - ballSize * 0.3, cy - ballSize * 0.8);
-    ctx.quadraticCurveTo(ballsX - ballSize * 0.25, cy, ballsX - ballSize * 0.3, cy + ballSize * 0.8);
+    ctx.moveTo(ballsX - ballSize * 0.06, sackCy - ballSize * 0.7);
+    ctx.quadraticCurveTo(ballsX + ballSize * 0.02, sackCy, ballsX - ballSize * 0.08, sackCy + ballSize * 0.72);
     ctx.stroke();
+
+    // Wrinkles make the sack read as scrotum instead of decorative circles.
     ctx.strokeStyle = darkenColor(skinDark, 18);
     ctx.lineWidth = 0.7;
-    for (let i = 0; i < 4; i++) {
-      const wy = cy - ballSize * 0.45 + i * ballSize * 0.25;
+    for (let i = 0; i < 6; i++) {
+      const wy = sackCy - ballSize * 0.52 + i * ballSize * 0.2;
       ctx.beginPath();
-      ctx.moveTo(ballsX - ballSize * 0.88, wy);
-      ctx.quadraticCurveTo(ballsX - ballSize * 0.3, wy + 3, ballsX + ballSize * 0.24, wy);
+      ctx.moveTo(ballsX - ballSize * 0.78, wy);
+      ctx.quadraticCurveTo(ballsX - ballSize * 0.05, wy + 4, ballsX + ballSize * 0.72, wy + 1);
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
+
+    // Sparse pubic hairs at the base.
+    ctx.strokeStyle = darkenColor(veinColor, 12);
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 7; i++) {
+      const hx = shaftLeft - ballSize * 0.25 + i * ballSize * 0.14;
+      const hy = cy - shaftH * 0.48 + (i % 2) * 2;
+      ctx.beginPath();
+      ctx.moveTo(hx, hy);
+      ctx.quadraticCurveTo(hx - 4 + (i % 3) * 3, hy - 5, hx + 2, hy - 8);
+      ctx.stroke();
+    }
 
     // Top highlight on shaft
     ctx.strokeStyle = 'rgba(255,255,255,0.25)';
@@ -1585,7 +1679,7 @@
       if (paddle.powerTimer <= 0) {
         paddle.powerType = null;
         paddle.width = paddle.baseWidth;
-        ballSpeed = BALL_BASE_SPEED;
+        ballSpeed = getLevelSpeed(level);
         balls.forEach(b => b.fireball = false);
       }
     }
@@ -1920,8 +2014,7 @@
     level = 1;
     combo = 0;
     maxCombo = 0;
-    ballSpeed = BALL_BASE_SPEED;
-    paddle.width = paddle.baseWidth;
+    applyLevelDifficulty();
     paddle.powerType = null;
     paddle.powerTimer = 0;
     powerups = [];
@@ -1935,8 +2028,7 @@
 
   function nextLevel() {
     level++;
-    ballSpeed = BALL_BASE_SPEED + level * 0.3;
-    paddle.width = paddle.baseWidth;
+    applyLevelDifficulty();
     paddle.powerType = null;
     paddle.powerTimer = 0;
     powerups = [];
