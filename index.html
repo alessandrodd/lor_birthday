@@ -1851,7 +1851,7 @@
       spermShotCooldown--;
       if (spermShotCooldown <= 0) {
         fireSpermShot();
-        spermShotCooldown = 13;
+        spermShotCooldown = 24;
       }
     }
 
@@ -2185,7 +2185,7 @@
       launchBall();
       if (paddle.powerType === 'spermcannon' && spermShotCooldown > 4) {
         fireSpermShot();
-        spermShotCooldown = 8;
+        spermShotCooldown = 10;
       }
     } else if (gameState === STATE.GAME_OVER) {
       startGame();
