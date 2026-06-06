@@ -130,7 +130,8 @@
   'use strict';
 
   // ----- CONFIG -----
-  const PASSWORD_TARGET_SCORE = 2000;
+  const PASSWORD_TARGET_SCORE = 5000;
+  const PASSWORD_REQUIRED_COMPLETED_LEVELS = 3;
   const SECRET_PASSWORD = 'DongMaster2026';
   const BIRTHDAY_NAME = 'Lorenzo';
 
@@ -335,6 +336,7 @@
   let level = 1;
   let combo = 0;
   let maxCombo = 0;
+  let completedLevels = 0;
   let highScore = parseInt(localStorage.getItem('dongbreaker_hs') || '0');
   let passwordRevealed = false;
   let gameOverInsult = '';
@@ -706,10 +708,14 @@
   }
 
   function checkPasswordUnlock() {
-    if (passwordRevealed || score < PASSWORD_TARGET_SCORE) return;
+    if (passwordRevealed || !canRevealPassword()) return;
     passwordRevealed = true;
     spawnFloatingText(BASE_W / 2, BASE_H * 0.42, 'SECRET UNLOCKED!', '#ffdd44', 26);
     sfxUnlock();
+  }
+
+  function canRevealPassword() {
+    return score >= PASSWORD_TARGET_SCORE && completedLevels >= PASSWORD_REQUIRED_COMPLETED_LEVELS;
   }
 
   // ----- DRAWING HELPERS -----
@@ -1549,7 +1555,7 @@
     // Hint about password
     ctx.fillStyle = '#664455';
     ctx.font = '12px Outfit';
-    ctx.fillText(`Score ${PASSWORD_TARGET_SCORE}+ points to unlock a secret surprise...`, BASE_W / 2, BASE_H * 0.92);
+    ctx.fillText(`Completa il livello ${PASSWORD_REQUIRED_COMPLETED_LEVELS} e fai ${PASSWORD_TARGET_SCORE}+ punti per il segreto...`, BASE_W / 2, BASE_H * 0.92);
 
     ctx.restore();
   }
@@ -1592,10 +1598,10 @@
 
     ctx.fillStyle = '#cc88aa';
     ctx.font = '14px Outfit';
-    ctx.fillText(`Max Combo: x${maxCombo} | Level Reached: ${level}`, BASE_W / 2, BASE_H * 0.70);
+    ctx.fillText(`Max Combo: x${maxCombo} | Completed Levels: ${completedLevels}`, BASE_W / 2, BASE_H * 0.70);
 
     // Password check
-    if (score >= PASSWORD_TARGET_SCORE) {
+    if (canRevealPassword()) {
       drawPasswordReveal(BASE_H * 0.76);
     }
 
@@ -1630,18 +1636,24 @@
 
     ctx.fillStyle = '#ffccdd';
     ctx.font = '20px Outfit';
-    ctx.fillText(`Score: ${score}`, BASE_W / 2, score >= PASSWORD_TARGET_SCORE ? BASE_H * 0.54 : BASE_H * 0.58);
+    ctx.fillText(`Score: ${score}`, BASE_W / 2, canRevealPassword() ? BASE_H * 0.54 : BASE_H * 0.56);
 
     // Bonus for level clear
     ctx.fillStyle = '#ffdd44';
     ctx.font = '16px Outfit';
-    ctx.fillText(`Level Bonus: +${level * 100}`, BASE_W / 2, score >= PASSWORD_TARGET_SCORE ? BASE_H * 0.58 : BASE_H * 0.66);
+    ctx.fillText(`Level Bonus: +${level * 100}`, BASE_W / 2, canRevealPassword() ? BASE_H * 0.58 : BASE_H * 0.64);
 
     ctx.fillStyle = '#44ff88';
     ctx.font = 'bold 16px Outfit';
-    ctx.fillText('Life Restored: +1', BASE_W / 2, score >= PASSWORD_TARGET_SCORE ? BASE_H * 0.64 : BASE_H * 0.72);
+    ctx.fillText('Life Restored: +1', BASE_W / 2, canRevealPassword() ? BASE_H * 0.64 : BASE_H * 0.70);
 
-    if (score >= PASSWORD_TARGET_SCORE) {
+    if (!canRevealPassword()) {
+      ctx.fillStyle = '#aa6688';
+      ctx.font = '13px Outfit';
+      ctx.fillText(`Segreto: ${PASSWORD_TARGET_SCORE}+ punti e livello ${PASSWORD_REQUIRED_COMPLETED_LEVELS} completato`, BASE_W / 2, BASE_H * 0.77);
+    }
+
+    if (canRevealPassword()) {
       drawPasswordReveal(BASE_H * 0.70);
     }
 
@@ -1649,7 +1661,7 @@
     ctx.globalAlpha = pulse;
     ctx.fillStyle = '#ff88aa';
     ctx.font = '18px Outfit';
-    ctx.fillText('Click to continue', BASE_W / 2, score >= PASSWORD_TARGET_SCORE ? BASE_H * 0.94 : BASE_H * 0.84);
+    ctx.fillText('Click to continue', BASE_W / 2, canRevealPassword() ? BASE_H * 0.94 : BASE_H * 0.84);
     ctx.globalAlpha = 1;
 
     ctx.restore();
@@ -1684,7 +1696,7 @@
 
     ctx.fillStyle = '#ffccdd';
     ctx.font = '13px Outfit';
-    ctx.fillText(`You scored ${score}+ points! Secret password:`, BASE_W / 2, by + 44);
+    ctx.fillText(`${score} punti e ${completedLevels} livelli completati. Password:`, BASE_W / 2, by + 44);
 
     ctx.fillStyle = '#ffdd44';
     ctx.font = 'bold 22px monospace';
@@ -1917,6 +1929,7 @@
     if (bricks.every(b => !b.alive)) {
       score += level * 100; // Level bonus
       lives += 1;
+      completedLevels = Math.max(completedLevels, level);
       spawnFloatingText(BASE_W / 2, BASE_H * 0.56, '+1 LIFE', '#44ff88', 22);
       checkPasswordUnlock();
       gameState = STATE.LEVEL_COMPLETE;
@@ -2088,6 +2101,7 @@
     level = 1;
     combo = 0;
     maxCombo = 0;
+    completedLevels = 0;
     gameOverAt = 0;
     gameOverInsult = '';
     levelCompleteAt = 0;
