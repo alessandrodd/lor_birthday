@@ -224,6 +224,11 @@
         setTimeout(() => playNoise(0.10, 0.14), 70);
         setTimeout(() => playTone(760, 0.16, 'sine', 0.1), 95);
         break;
+      case 'spermcannon':
+        playNoise(0.10, 0.18);
+        setTimeout(() => playTone(510, 0.08, 'triangle', 0.11), 45);
+        setTimeout(() => playTone(920, 0.12, 'sine', 0.10), 110);
+        break;
       case 'blueballs':
         playTone(620, 0.08, 'sine', 0.09);
         setTimeout(() => playTone(390, 0.12, 'sine', 0.1), 70);
@@ -273,6 +278,10 @@
     [523, 659, 784, 1046].forEach((freq, i) => {
       setTimeout(() => playTone(freq, 0.16, 'sine', 0.13), i * 90);
     });
+  }
+  function sfxSpermShot() {
+    playNoise(0.035, 0.09);
+    playTone(780 + Math.random() * 120, 0.035, 'sine', 0.055);
   }
 
   // ----- FLOATING TEXT -----
@@ -584,7 +593,7 @@
   // ----- POWERUPS -----
   let powerups = [];
   // Sex-themed power-ups
-  const POWERUP_TYPES = ['viagra', 'orgy', 'boner', 'cockring', 'moneyshot', 'blueballs'];
+  const POWERUP_TYPES = ['viagra', 'orgy', 'boner', 'cockring', 'moneyshot', 'spermcannon', 'blueballs'];
   const POWERUP_SPEED = 2.5;
   const POWERUP_LABELS = {
     viagra: 'VIAGRA!',
@@ -592,6 +601,7 @@
     boner: 'BONER!',
     cockring: 'COCK RING!',
     moneyshot: 'MONEYSHOT!',
+    spermcannon: 'SPERM CANNON!',
     blueballs: 'BLUE BALLS!'
   };
 
@@ -638,6 +648,12 @@
         destroyRandomBricks(5 + Math.min(level, 4));
         break;
       }
+      case 'spermcannon': { // Timed sperm shots from the paddle tip
+        paddle.powerType = 'spermcannon';
+        paddle.powerTimer = 540;
+        spermShotCooldown = 0;
+        break;
+      }
       case 'blueballs': { // Slow down
         ballSpeed = getLevelSpeed(level) * 0.62;
         paddle.powerType = 'blueballs';
@@ -649,6 +665,8 @@
 
   // ----- PARTICLES -----
   let particles = [];
+  let spermShots = [];
+  let spermShotCooldown = 0;
 
   function spawnParticles(x, y, color, count, speed) {
     for (let i = 0; i < count; i++) {
@@ -705,6 +723,41 @@
       spawnFloatingText(bx, by - 12, `+${points}`, '#fff4cf', 13);
     });
     checkPasswordUnlock();
+  }
+
+  function fireSpermShot() {
+    const tipX = Math.min(BASE_W - 8, paddle.x + paddle.width / 2 + 6);
+    const tipY = paddle.y - paddle.height * 0.15;
+    spermShots.push({
+      x: tipX,
+      y: tipY,
+      vx: (Math.random() - 0.5) * 0.35,
+      vy: -9.2,
+      size: 7,
+      life: 95,
+      wiggle: Math.random() * 10
+    });
+    spawnSpermParticles(tipX, tipY - 4);
+    sfxSpermShot();
+  }
+
+  function damageBrickFromShot(shot, brick) {
+    brick.hp -= 1;
+    brick.shakeTimer = 8;
+    const points = 15 + level * 4;
+    score += points;
+    checkPasswordUnlock();
+    spawnSpermParticles(shot.x, shot.y);
+    spawnParticles(shot.x, shot.y, brick.color, 8, 4);
+    spawnFloatingText(brick.x + brick.w / 2, brick.y, `+${points}`, '#fff4cf', 12);
+    sfxHit();
+
+    if (brick.hp <= 0) {
+      brick.alive = false;
+      spawnPowerup(brick.x + brick.w / 2, brick.y + brick.h / 2);
+      sfxBreak();
+      shakeAmount = Math.min(6, shakeAmount + 2);
+    }
   }
 
   function checkPasswordUnlock() {
@@ -961,6 +1014,10 @@
       skinBase = '#2277ff'; skinLight = '#55aaff'; skinDark = '#1144cc';
       glansColor = '#3388ff'; glansDark = '#1155dd'; veinColor = '#0033aa';
       glowColor = '#3399ff';
+    } else if (paddle.powerType === 'spermcannon') {
+      skinBase = '#ffe5f2'; skinLight = '#ffffff'; skinDark = '#f4aac8';
+      glansColor = '#ffd2e4'; glansDark = '#dd7fa2'; veinColor = '#d083a0';
+      glowColor = '#ffffff';
     } else if (paddle.powerType === 'blueballs') {
       skinBase = '#88aacc'; skinLight = '#aaccee'; skinDark = '#667799';
       glansColor = '#99bbdd'; glansDark = '#7799bb'; veinColor = '#556688';
@@ -1190,6 +1247,24 @@
     });
   }
 
+  function drawSpermShots() {
+    spermShots.forEach(shot => {
+      ctx.save();
+      ctx.shadowColor = '#ffffff';
+      ctx.shadowBlur = 12;
+      drawSperm(
+        ctx,
+        shot.x,
+        shot.y,
+        shot.size,
+        Math.PI / 2 + Math.sin(performance.now() / 90 + shot.wiggle) * 0.15,
+        performance.now() / 90 + shot.wiggle
+      );
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    });
+  }
+
   // ----- POWERUP RENDERING (SEX-THEMED) -----
   function drawPowerups() {
     powerups.forEach(pu => {
@@ -1305,6 +1380,26 @@
           }
           break;
         }
+        case 'spermcannon': {
+          // Timed firing power-up: dong barrel with repeated shots.
+          drawSmallDong(ctx, -3, 5, r, '#ffe0ee', -0.55);
+          ctx.fillStyle = '#fff';
+          const t = performance.now();
+          for (let i = 0; i < 5; i++) {
+            const sx = 3 + Math.sin(t / 80 + i) * 2;
+            const sy = -r * 0.85 - i * 3;
+            ctx.beginPath();
+            ctx.ellipse(sx, sy, 2.4, 3.8, -0.2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(4, -r * 0.35);
+          ctx.lineTo(4, -r * 1.15);
+          ctx.stroke();
+          break;
+        }
         case 'blueballs': {
           // Blue testicles
           const bbR = r * 0.5;
@@ -1356,6 +1451,7 @@
       case 'boner': return '#ff4400';
       case 'cockring': return '#ffd447';
       case 'moneyshot': return '#ffffff';
+      case 'spermcannon': return '#fff4cf';
       case 'blueballs': return '#66aadd';
       default: return '#fff';
     }
@@ -1448,7 +1544,8 @@
       const barW = 100;
       const barH = 5;
       const maxTime = paddle.powerType === 'boner' ? 480 :
-                      paddle.powerType === 'blueballs' ? 420 : 600;
+                      paddle.powerType === 'blueballs' ? 420 :
+                      paddle.powerType === 'spermcannon' ? 540 : 600;
       const pct = paddle.powerTimer / maxTime;
       ctx.fillStyle = 'rgba(0,0,0,0.5)';
       ctx.fillRect(BASE_W / 2 - barW / 2, 26, barW, barH);
@@ -1750,6 +1847,14 @@
       }
     }
 
+    if (paddle.powerType === 'spermcannon') {
+      spermShotCooldown--;
+      if (spermShotCooldown <= 0) {
+        fireSpermShot();
+        spermShotCooldown = 13;
+      }
+    }
+
     // Sticky ball follows paddle
     if (paddle.sticky && paddle.stickyBall) {
       paddle.stickyBall.x = paddle.x;
@@ -1906,6 +2011,27 @@
     });
     powerups = powerups.filter(pu => pu.y < BASE_H + 50);
 
+    // Update sperm cannon shots
+    spermShots.forEach(shot => {
+      shot.x += shot.vx;
+      shot.y += shot.vy;
+      shot.life--;
+
+      for (const brick of bricks) {
+        if (!brick.alive) continue;
+        const closestX = Math.max(brick.x, Math.min(shot.x, brick.x + brick.w));
+        const closestY = Math.max(brick.y, Math.min(shot.y, brick.y + brick.h));
+        const dx = shot.x - closestX;
+        const dy = shot.y - closestY;
+        if ((dx * dx + dy * dy) < shot.size * shot.size) {
+          damageBrickFromShot(shot, brick);
+          shot.life = 0;
+          break;
+        }
+      }
+    });
+    spermShots = spermShots.filter(shot => shot.life > 0 && shot.y > -20 && shot.x > -20 && shot.x < BASE_W + 20);
+
     // Update particles
     particles.forEach(p => {
       p.x += p.vx;
@@ -1995,6 +2121,9 @@
       // Draw balls
       drawBalls();
 
+      // Draw sperm cannon shots
+      drawSpermShots();
+
       // Draw floating texts
       drawFloatingTexts();
 
@@ -2054,6 +2183,10 @@
       startGame();
     } else if (gameState === STATE.PLAYING) {
       launchBall();
+      if (paddle.powerType === 'spermcannon' && spermShotCooldown > 4) {
+        fireSpermShot();
+        spermShotCooldown = 8;
+      }
     } else if (gameState === STATE.GAME_OVER) {
       startGame();
     } else if (gameState === STATE.LEVEL_COMPLETE) {
@@ -2110,6 +2243,8 @@
     paddle.powerTimer = 0;
     powerups = [];
     particles = [];
+    spermShots = [];
+    spermShotCooldown = 0;
     passwordRevealed = false;
 
     generateLevel(level);
@@ -2125,6 +2260,8 @@
     paddle.powerTimer = 0;
     powerups = [];
     particles = [];
+    spermShots = [];
+    spermShotCooldown = 0;
 
     generateLevel(level);
     resetBall();
