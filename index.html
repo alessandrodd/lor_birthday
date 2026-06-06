@@ -337,6 +337,20 @@
   let maxCombo = 0;
   let highScore = parseInt(localStorage.getItem('dongbreaker_hs') || '0');
   let passwordRevealed = false;
+  let gameOverInsult = '';
+
+  const GAME_OVER_INSULTS = [
+    'Certo che sei proprio un pirlone.',
+    'Anvedi che nabbo, Lorenzo.',
+    'Pirla mode: attivata.',
+    'Che figura da principiante.',
+    'Nabbo duro, ma con stile.',
+    'Sei stato asfaltato, campione.',
+    'Il paddle ti ha lasciato per vergogna.',
+    'Mamma mia che mira da pirlone.',
+    'Hai giocato come un tutorial rotto.',
+    'Dai su, anche un comodino durava di piu.'
+  ];
 
   // ----- PADDLE -----
   const paddle = {
@@ -1559,17 +1573,21 @@
     // Score
     ctx.fillStyle = '#ffccdd';
     ctx.font = '22px Outfit';
-    ctx.fillText(`Final Score: ${score}`, BASE_W / 2, BASE_H * 0.52);
+    ctx.fillText(`Final Score: ${score}`, BASE_W / 2, BASE_H * 0.49);
+
+    ctx.fillStyle = '#ffdd44';
+    ctx.font = 'bold 19px Outfit';
+    ctx.fillText(gameOverInsult || GAME_OVER_INSULTS[0], BASE_W / 2, BASE_H * 0.58);
 
     if (score > highScore) {
       ctx.fillStyle = '#ffdd44';
       ctx.font = 'bold 18px Outfit';
-      ctx.fillText('🏆 NEW HIGH SCORE! 🏆', BASE_W / 2, BASE_H * 0.60);
+      ctx.fillText('🏆 NEW HIGH SCORE! 🏆', BASE_W / 2, BASE_H * 0.64);
     }
 
     ctx.fillStyle = '#cc88aa';
     ctx.font = '14px Outfit';
-    ctx.fillText(`Max Combo: x${maxCombo} | Level Reached: ${level}`, BASE_W / 2, BASE_H * 0.68);
+    ctx.fillText(`Max Combo: x${maxCombo} | Level Reached: ${level}`, BASE_W / 2, BASE_H * 0.70);
 
     // Password check
     if (score >= PASSWORD_TARGET_SCORE) {
@@ -1837,6 +1855,7 @@
       if (lives <= 0) {
         gameState = STATE.GAME_OVER;
         gameOverAt = performance.now();
+        gameOverInsult = GAME_OVER_INSULTS[Math.floor(Math.random() * GAME_OVER_INSULTS.length)];
         if (score > highScore) {
           highScore = score;
           localStorage.setItem('dongbreaker_hs', highScore.toString());
@@ -1864,7 +1883,7 @@
         applyPowerup(pu.type);
         spawnParticles(pu.x, pu.y, getPowerupColor(pu.type), 12, 3);
         sfxPowerup(pu.type);
-        spawnFloatingText(pu.x, pu.y - 15, pu.type.toUpperCase() + '!', getPowerupColor(pu.type), 16);
+        spawnFloatingText(pu.x, pu.y - 22, POWERUP_LABELS[pu.type] || `${pu.type.toUpperCase()}!`, getPowerupColor(pu.type), 30);
         pu.y = BASE_H + 100; // Mark for removal
       }
     });
@@ -2065,6 +2084,7 @@
     combo = 0;
     maxCombo = 0;
     gameOverAt = 0;
+    gameOverInsult = '';
     levelCompleteAt = 0;
     applyLevelDifficulty();
     paddle.powerType = null;
