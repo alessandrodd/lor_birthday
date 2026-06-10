@@ -50,6 +50,37 @@
         inset 0 0 60px rgba(0,0,0,0.3);
     }
 
+    #secret-prize-link {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%) translateY(14px);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: min(88vw, 360px);
+      padding: 12px 18px;
+      border: 1px solid rgba(255, 221, 68, 0.8);
+      border-radius: 8px;
+      background: linear-gradient(135deg, #ffdd44, #ff6b9d);
+      color: #1a0710;
+      font-weight: 900;
+      font-size: 16px;
+      text-decoration: none;
+      letter-spacing: 0;
+      box-shadow: 0 0 24px rgba(255, 107, 157, 0.35);
+      z-index: 30;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    #secret-prize-link.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(-50%) translateY(0);
+    }
+
     #loading-modal {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -119,6 +150,7 @@
   <div id="game-container">
     <canvas id="game-canvas"></canvas>
   </div>
+  <a id="secret-prize-link" href="./premio.html">Apri il premio segreto</a>
   <div id="orientation-hint">Rotate sideways for the full arcade view.</div>
 
 <script>
@@ -132,7 +164,9 @@
   // ----- CONFIG -----
   const PASSWORD_TARGET_SCORE = 5000;
   const PASSWORD_REQUIRED_COMPLETED_LEVELS = 3;
-  const SECRET_PASSWORD = 'DongMaster2026';
+  const SECRET_PASSWORD = 'DongMaster92';
+  const SECRET_PRIZE_URL = './premio.html';
+  const SECRET_UNLOCK_STORAGE_KEY = 'dongBreakerSecretUnlocked';
   const BIRTHDAY_NAME = 'Lorenzo';
 
   // ----- SOUND (Web Audio API) -----
@@ -299,6 +333,8 @@
   // ----- CANVAS SETUP -----
   const canvas = document.getElementById('game-canvas');
   const ctx = canvas.getContext('2d');
+  const secretPrizeLink = document.getElementById('secret-prize-link');
+  if (secretPrizeLink) secretPrizeLink.href = SECRET_PRIZE_URL;
 
   // Base design resolution (landscape)
   const BASE_W = 960;
@@ -306,6 +342,29 @@
 
   let scale = 1;
   let offsetX = 0, offsetY = 0;
+
+  function setSecretPrizeLinkVisible(visible) {
+    if (!secretPrizeLink) return;
+    secretPrizeLink.classList.toggle('visible', visible);
+  }
+
+  function persistSecretUnlock() {
+    try {
+      localStorage.setItem(SECRET_UNLOCK_STORAGE_KEY, 'true');
+    } catch (err) {
+      // The visual unlock still works if storage is unavailable.
+    }
+  }
+
+  function hasPersistentSecretUnlock() {
+    try {
+      return localStorage.getItem(SECRET_UNLOCK_STORAGE_KEY) === 'true';
+    } catch (err) {
+      return false;
+    }
+  }
+
+  setSecretPrizeLinkVisible(hasPersistentSecretUnlock());
 
   function resizeCanvas() {
     const maxW = window.innerWidth * 0.96;
@@ -763,6 +822,8 @@
   function checkPasswordUnlock() {
     if (passwordRevealed || !canRevealPassword()) return;
     passwordRevealed = true;
+    persistSecretUnlock();
+    setSecretPrizeLinkVisible(true);
     spawnFloatingText(BASE_W / 2, BASE_H * 0.42, 'SECRET UNLOCKED!', '#ffdd44', 26);
     sfxUnlock();
   }
@@ -1768,7 +1829,7 @@
     ctx.save();
 
     const boxW = 420;
-    const boxH = 110;
+    const boxH = 128;
     const bx = BASE_W / 2 - boxW / 2;
     const by = startY - 15;
 
@@ -1801,7 +1862,11 @@
 
     ctx.fillStyle = '#fff4cf';
     ctx.font = '12px Outfit';
-    ctx.fillText(`Happy Birthday ${BIRTHDAY_NAME}! 🎂🥳`, BASE_W / 2, by + 92);
+    ctx.fillText(`Link: ${SECRET_PRIZE_URL} | Happy Birthday ${BIRTHDAY_NAME}! 🎂🥳`, BASE_W / 2, by + 92);
+
+    ctx.fillStyle = '#ff88aa';
+    ctx.font = 'bold 12px Outfit';
+    ctx.fillText('Si apre anche dal bottone sotto al gioco.', BASE_W / 2, by + 112);
 
     ctx.restore();
   }

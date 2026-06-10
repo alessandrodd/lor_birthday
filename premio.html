@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Premio segreto per Lorenzo</title>
+  <meta name="description" content="Premio segreto di compleanno per Lorenzo">
+  <meta name="theme-color" content="#09080d">
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&display=swap');
+
+    * {
+      box-sizing: border-box;
+    }
+
+    :root {
+      color-scheme: dark;
+      --bg: #09080d;
+      --panel: rgba(18, 16, 24, 0.88);
+      --panel-strong: rgba(27, 24, 34, 0.96);
+      --text: #fff6ed;
+      --muted: #bdb2c6;
+      --pink: #ff5f9f;
+      --gold: #ffd15c;
+      --mint: #54e6b5;
+      --blue: #68a8ff;
+      --line: rgba(255, 255, 255, 0.13);
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        linear-gradient(140deg, rgba(255, 95, 159, 0.16), transparent 34%),
+        linear-gradient(320deg, rgba(84, 230, 181, 0.13), transparent 28%),
+        linear-gradient(180deg, #111019 0%, var(--bg) 58%, #060608 100%);
+      color: var(--text);
+      font-family: 'Outfit', system-ui, sans-serif;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    .gate,
+    .stage,
+    .chosen {
+      min-height: 100vh;
+    }
+
+    .gate {
+      display: grid;
+      place-items: center;
+      padding: 22px;
+    }
+
+    .gate-box {
+      width: min(92vw, 440px);
+      padding: 26px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-strong);
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+    }
+
+    .gate-box h1,
+    .intro h1 {
+      margin: 0;
+      font-size: clamp(2rem, 5vw, 4.4rem);
+      line-height: 0.95;
+      letter-spacing: 0;
+    }
+
+    .gate-box p,
+    .intro p {
+      margin: 16px 0 0;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.55;
+    }
+
+    .password-form {
+      display: grid;
+      gap: 12px;
+      margin-top: 22px;
+    }
+
+    .password-form input {
+      width: 100%;
+      min-height: 48px;
+      padding: 0 14px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 8px;
+      outline: none;
+      background: rgba(0, 0, 0, 0.28);
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .password-form input:focus {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px rgba(255, 209, 92, 0.16);
+    }
+
+    .primary-action {
+      min-height: 48px;
+      border: 0;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--gold), var(--pink));
+      color: #16080e;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .error {
+      min-height: 20px;
+      color: #ff8aa4;
+      font-weight: 700;
+    }
+
+    .stage {
+      display: none;
+      padding: clamp(18px, 3vw, 36px);
+    }
+
+    .stage.unlocked {
+      display: block;
+    }
+
+    .wrap {
+      width: min(1180px, 100%);
+      margin: 0 auto;
+    }
+
+    .intro {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+      gap: 24px;
+      align-items: end;
+      padding: 18px 0 28px;
+    }
+
+    .intro-copy {
+      max-width: 780px;
+    }
+
+    .tagline {
+      display: inline-flex;
+      width: fit-content;
+      margin-bottom: 12px;
+      padding: 7px 10px;
+      border: 1px solid rgba(255, 209, 92, 0.45);
+      border-radius: 999px;
+      color: var(--gold);
+      background: rgba(255, 209, 92, 0.08);
+      font-size: 0.82rem;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .choice-count {
+      justify-self: end;
+      width: min(100%, 330px);
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .choice-count strong {
+      display: block;
+      color: var(--mint);
+      font-size: 1.25rem;
+      margin-bottom: 6px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      padding-bottom: 34px;
+    }
+
+    .game-card {
+      position: relative;
+      display: grid;
+      grid-template-rows: 1fr auto;
+      min-height: 246px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.24);
+      transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+    }
+
+    .game-card:hover,
+    .game-card:focus-visible {
+      transform: translateY(-3px);
+      border-color: rgba(255, 209, 92, 0.72);
+      box-shadow: 0 22px 60px rgba(0, 0, 0, 0.38);
+      outline: none;
+    }
+
+    .media {
+      position: relative;
+      min-height: 148px;
+      overflow: hidden;
+      background: #16141d;
+    }
+
+    .media img {
+      width: 100%;
+      height: 100%;
+      min-height: 148px;
+      object-fit: cover;
+      display: block;
+      transform: scale(1.01);
+    }
+
+    .bundle-media {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+      min-height: 148px;
+    }
+
+    .bundle-media img {
+      min-height: 74px;
+    }
+
+    .media::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, transparent 45%, rgba(0, 0, 0, 0.72));
+    }
+
+    .card-copy {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      gap: 7px;
+      padding: 14px;
+    }
+
+    .card-copy h2 {
+      margin: 0;
+      color: #fff;
+      font-size: 1.08rem;
+      line-height: 1.15;
+      letter-spacing: 0;
+    }
+
+    .card-copy p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.35;
+    }
+
+    .badge {
+      width: fit-content;
+      padding: 4px 7px;
+      border-radius: 6px;
+      background: rgba(104, 168, 255, 0.14);
+      color: #b9d5ff;
+      font-size: 0.75rem;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .chosen {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: none;
+      isolation: isolate;
+      overflow: hidden;
+      background: #050507;
+    }
+
+    .chosen.visible {
+      display: grid;
+      place-items: center;
+    }
+
+    .chosen-bg,
+    .chosen-collage {
+      position: absolute;
+      inset: 0;
+      z-index: -2;
+    }
+
+    .chosen-bg {
+      background-position: center;
+      background-size: cover;
+      filter: saturate(1.05);
+      transform: scale(1.04);
+    }
+
+    .chosen-collage {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+    }
+
+    .chosen-collage img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .chosen::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      background:
+        linear-gradient(180deg, rgba(5, 5, 7, 0.22), rgba(5, 5, 7, 0.78)),
+        linear-gradient(90deg, rgba(5, 5, 7, 0.65), rgba(5, 5, 7, 0.08) 55%, rgba(5, 5, 7, 0.65));
+    }
+
+    .chosen-copy {
+      width: min(92vw, 720px);
+      padding: 28px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 8px;
+      background: rgba(7, 7, 10, 0.72);
+      backdrop-filter: blur(8px);
+      text-align: center;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.44);
+    }
+
+    .chosen-copy h2 {
+      margin: 0;
+      font-size: clamp(2.1rem, 7vw, 5.5rem);
+      line-height: 0.92;
+      letter-spacing: 0;
+    }
+
+    .chosen-copy p {
+      margin: 18px auto 0;
+      max-width: 560px;
+      color: #efe9f4;
+      font-size: clamp(1.05rem, 2.2vw, 1.35rem);
+      line-height: 1.45;
+    }
+
+    .secondary-action {
+      margin-top: 22px;
+      min-height: 44px;
+      padding: 0 15px;
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    @media (max-width: 900px) {
+      .intro {
+        grid-template-columns: 1fr;
+      }
+
+      .choice-count {
+        justify-self: start;
+        width: 100%;
+      }
+
+      .grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 620px) {
+      .gate-box {
+        padding: 20px;
+      }
+
+      .stage {
+        padding: 16px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .game-card {
+        min-height: 224px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section id="gate" class="gate">
+      <div class="gate-box">
+        <h1>Area pirlone</h1>
+        <p>Inserisci la password sputata fuori dal capolavoro fallico per entrare nella zona premi.</p>
+        <form id="password-form" class="password-form">
+          <input id="password-input" type="password" autocomplete="off" placeholder="Password">
+          <button class="primary-action" type="submit">Sblocca</button>
+          <div id="password-error" class="error" aria-live="polite"></div>
+        </form>
+      </div>
+    </section>
+
+    <section id="stage" class="stage">
+      <div class="wrap">
+        <header class="intro">
+          <div class="intro-copy">
+            <span class="tagline">Missione compiuta</span>
+            <h1>E così il pirlone ce l'ha fatta.</h1>
+            <p>Bene, bene. Peccato che il vero regalo è <strong>cumming soon</strong>. Nel frattempo scegli il tuo premio di consolazione, che almeno questa volta non devi farmare mattoncini a forma di cazzo.</p>
+          </div>
+          <aside class="choice-count">
+            <strong>1 scelta secca</strong>
+            Scegli con giudizio: dopo il click parte la schermata finale e Alessandro capisce cosa deve recuperare.
+          </aside>
+        </header>
+
+        <div id="game-grid" class="grid" aria-label="Scelta premio Steam"></div>
+      </div>
+    </section>
+
+    <section id="chosen" class="chosen" aria-live="polite">
+      <div id="chosen-bg" class="chosen-bg"></div>
+      <div id="chosen-collage" class="chosen-collage hidden"></div>
+      <div class="chosen-copy">
+        <h2 id="chosen-title"></h2>
+        <p id="chosen-message"></p>
+        <button id="change-choice" class="secondary-action" type="button">Ho cambiato idea</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const SECRET_PASSWORD = 'DongMaster92';
+      const UNLOCK_KEY = 'lorenzoPrizeUnlocked';
+      const CHOICE_KEY = 'lorenzoPrizeChoice';
+      const STEAM_IMG = 'https://cdn.cloudflare.steamstatic.com/steam/apps/';
+
+      const games = [
+        {
+          id: 'no-mans-sky',
+          title: "No Man's Sky",
+          badge: 'Spazio co-op',
+          description: 'Esplorazione infinita, basi, navi e serate perse a dire "solo un pianeta ancora".',
+          images: [`${STEAM_IMG}275850/header.jpg`]
+        },
+        {
+          id: 'returnal',
+          title: 'Returnal',
+          badge: 'Roguelike sci-fi',
+          description: 'Sparatorie cattive, loop temporali e abbastanza dolore da sembrare una run di compleanno.',
+          images: [`${STEAM_IMG}1649240/header.jpg`]
+        },
+        {
+          id: 'arc-raiders',
+          title: 'ARC Raiders',
+          badge: 'Online extraction',
+          description: 'Raid al volo, robottoni e tradimenti da amici che "tranquillo, ti copro io".',
+          images: ['https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/1808500/542a243d39bd7ed791359be9e96c82f419b81475/capsule_231x87.jpg']
+        },
+        {
+          id: 'fatekeeper',
+          title: 'Fatekeeper',
+          badge: 'Fantasy action',
+          description: 'Atmosfera fantasy, botte e magia per quando vuole sentirsi meno pirlone e più prescelto.',
+          images: ['https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/2186990/ac1ab693d0187ec29cf7b132b7b820f2f51901a4/capsule_231x87_alt_assets_0.jpg']
+        },
+        {
+          id: 'humble-bundle',
+          title: 'Pacchetto Humble Bundle',
+          badge: 'Quattro giochi',
+          description: 'Octopath Traveler II, Life is Strange: Double Exposure, The Riftbreaker e INDIKA.',
+          images: [
+            `${STEAM_IMG}1971650/header.jpg`,
+            `${STEAM_IMG}1874000/header.jpg`,
+            `${STEAM_IMG}780310/header.jpg`,
+            `${STEAM_IMG}1373960/header.jpg`
+          ]
+        },
+        {
+          id: 'remedy-bundle',
+          title: 'Pacchetto Remedy',
+          badge: 'Control + Alan Wake',
+          description: 'Control Ultimate Edition più Alan Wake originale e American Nightmare.',
+          images: [
+            `${STEAM_IMG}870780/header.jpg`,
+            `${STEAM_IMG}108710/header.jpg`,
+            `${STEAM_IMG}202750/header.jpg`,
+            `${STEAM_IMG}870780/header.jpg`
+          ]
+        },
+        {
+          id: 'deep-rock',
+          title: 'Deep Rock Galactic',
+          badge: 'Co-op immediata',
+          description: 'Miniere, birra, caos e missioni perfette per entrare, urlare e uscire soddisfatti.',
+          images: [`${STEAM_IMG}548430/header.jpg`]
+        }
+      ];
+
+      const gate = document.getElementById('gate');
+      const stage = document.getElementById('stage');
+      const form = document.getElementById('password-form');
+      const input = document.getElementById('password-input');
+      const error = document.getElementById('password-error');
+      const grid = document.getElementById('game-grid');
+      const chosen = document.getElementById('chosen');
+      const chosenBg = document.getElementById('chosen-bg');
+      const chosenCollage = document.getElementById('chosen-collage');
+      const chosenTitle = document.getElementById('chosen-title');
+      const chosenMessage = document.getElementById('chosen-message');
+      const changeChoice = document.getElementById('change-choice');
+
+      function readStorage(key) {
+        try {
+          return localStorage.getItem(key);
+        } catch (err) {
+          return null;
+        }
+      }
+
+      function writeStorage(key, value) {
+        try {
+          localStorage.setItem(key, value);
+        } catch (err) {
+          return false;
+        }
+        return true;
+      }
+
+      function removeStorage(key) {
+        try {
+          localStorage.removeItem(key);
+        } catch (err) {
+          return false;
+        }
+        return true;
+      }
+
+      function unlock() {
+        gate.classList.add('hidden');
+        stage.classList.add('unlocked');
+        writeStorage(UNLOCK_KEY, 'true');
+      }
+
+      function buildCards() {
+        grid.innerHTML = '';
+        games.forEach((game) => {
+          const card = document.createElement('button');
+          card.className = 'game-card';
+          card.type = 'button';
+          card.dataset.id = game.id;
+
+          const media = document.createElement('div');
+          media.className = game.images.length > 1 ? 'media bundle-media' : 'media';
+          game.images.forEach((src) => {
+            const img = document.createElement('img');
+            img.src = src;
+            img.alt = game.title;
+            img.loading = 'lazy';
+            media.appendChild(img);
+          });
+
+          const copy = document.createElement('div');
+          copy.className = 'card-copy';
+
+          const badge = document.createElement('span');
+          badge.className = 'badge';
+          badge.textContent = game.badge;
+
+          const title = document.createElement('h2');
+          title.textContent = game.title;
+
+          const description = document.createElement('p');
+          description.textContent = game.description;
+
+          copy.append(badge, title, description);
+          card.append(media, copy);
+          card.addEventListener('click', () => selectGame(game));
+          grid.appendChild(card);
+        });
+      }
+
+      function renderChosenMedia(game) {
+        chosenBg.style.backgroundImage = '';
+        chosenCollage.innerHTML = '';
+        chosenCollage.classList.add('hidden');
+
+        if (game.images.length === 1) {
+          chosenBg.style.backgroundImage = `url("${game.images[0]}")`;
+          return;
+        }
+
+        chosenCollage.classList.remove('hidden');
+        game.images.forEach((src) => {
+          const img = document.createElement('img');
+          img.src = src;
+          img.alt = game.title;
+          chosenCollage.appendChild(img);
+        });
+      }
+
+      function selectGame(game) {
+        writeStorage(CHOICE_KEY, game.id);
+        renderChosenMedia(game);
+        chosenTitle.textContent = game.title;
+        chosenMessage.textContent = 'Scelta registrata. Ora resta qui e aspetta qualche minuto: Alessandro sta preparando il premio, pirlone.';
+        chosen.classList.add('visible');
+        document.body.style.overflow = 'hidden';
+      }
+
+      function restoreChoice() {
+        const savedId = readStorage(CHOICE_KEY);
+        const savedGame = games.find((game) => game.id === savedId);
+        if (savedGame) selectGame(savedGame);
+      }
+
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        if (input.value.trim() === SECRET_PASSWORD) {
+          error.textContent = '';
+          unlock();
+          return;
+        }
+        error.textContent = 'Password sbagliata. Che figura da pirlone.';
+        input.select();
+      });
+
+      changeChoice.addEventListener('click', () => {
+        removeStorage(CHOICE_KEY);
+        chosen.classList.remove('visible');
+        document.body.style.overflow = '';
+      });
+
+      buildCards();
+      if (readStorage(UNLOCK_KEY) === 'true') unlock();
+      restoreChoice();
+    })();
+  </script>
+</body>
+</html>
