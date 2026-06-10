@@ -166,7 +166,8 @@
   const PASSWORD_REQUIRED_COMPLETED_LEVELS = 3;
   const SECRET_PASSWORD = 'DongMaster92';
   const SECRET_PRIZE_URL = './premio.html';
-  const SECRET_UNLOCK_STORAGE_KEY = 'dongBreakerSecretUnlocked';
+  const SECRET_PRIZE_STORAGE_KEY = 'dongBreakerPrizeDoorUnlocked';
+  const MENU_EASTER_CLICKS_REQUIRED = 5;
   const BIRTHDAY_NAME = 'Lorenzo';
 
   // ----- SOUND (Web Audio API) -----
@@ -342,29 +343,46 @@
 
   let scale = 1;
   let offsetX = 0, offsetY = 0;
+  let menuEasterClicks = 0;
 
   function setSecretPrizeLinkVisible(visible) {
     if (!secretPrizeLink) return;
     secretPrizeLink.classList.toggle('visible', visible);
   }
 
-  function persistSecretUnlock() {
+  function persistSecretPrizeUnlock() {
     try {
-      localStorage.setItem(SECRET_UNLOCK_STORAGE_KEY, 'true');
+      localStorage.setItem(SECRET_PRIZE_STORAGE_KEY, 'true');
     } catch (err) {
       // The visual unlock still works if storage is unavailable.
     }
   }
 
-  function hasPersistentSecretUnlock() {
+  function hasPersistentSecretPrizeUnlock() {
     try {
-      return localStorage.getItem(SECRET_UNLOCK_STORAGE_KEY) === 'true';
+      return localStorage.getItem(SECRET_PRIZE_STORAGE_KEY) === 'true';
     } catch (err) {
       return false;
     }
   }
 
-  setSecretPrizeLinkVisible(hasPersistentSecretUnlock());
+  function isMenuPrizeHotspot(pos) {
+    if (!pos) return false;
+    const titleY = BASE_H * 0.28;
+    return pos.x >= BASE_W / 2 - 270 &&
+           pos.x <= BASE_W / 2 + 270 &&
+           pos.y >= titleY - 48 &&
+           pos.y <= titleY + 38;
+  }
+
+  function unlockSecretPrizeDoor() {
+    persistSecretPrizeUnlock();
+    setSecretPrizeLinkVisible(true);
+    spawnFloatingText(BASE_W / 2, BASE_H * 0.47, 'PREMIO SEGRETO SBLOCCATO!', '#ffdd44', 26);
+    sfxUnlock();
+  }
+
+  setSecretPrizeLinkVisible(hasPersistentSecretPrizeUnlock());
 
   function resizeCanvas() {
     const maxW = window.innerWidth * 0.96;
@@ -822,8 +840,6 @@
   function checkPasswordUnlock() {
     if (passwordRevealed || !canRevealPassword()) return;
     passwordRevealed = true;
-    persistSecretUnlock();
-    setSecretPrizeLinkVisible(true);
     spawnFloatingText(BASE_W / 2, BASE_H * 0.42, 'SECRET UNLOCKED!', '#ffdd44', 26);
     sfxUnlock();
   }
@@ -1829,7 +1845,7 @@
     ctx.save();
 
     const boxW = 420;
-    const boxH = 128;
+    const boxH = 110;
     const bx = BASE_W / 2 - boxW / 2;
     const by = startY - 15;
 
@@ -1862,11 +1878,7 @@
 
     ctx.fillStyle = '#fff4cf';
     ctx.font = '12px Outfit';
-    ctx.fillText(`Link: ${SECRET_PRIZE_URL} | Happy Birthday ${BIRTHDAY_NAME}! 🎂🥳`, BASE_W / 2, by + 92);
-
-    ctx.fillStyle = '#ff88aa';
-    ctx.font = 'bold 12px Outfit';
-    ctx.fillText('Si apre anche dal bottone sotto al gioco.', BASE_W / 2, by + 112);
+    ctx.fillText(`Happy Birthday ${BIRTHDAY_NAME}! 🎂🥳`, BASE_W / 2, by + 92);
 
     ctx.restore();
   }
@@ -2242,9 +2254,21 @@
     paddle.targetX = pos.x;
   }, { passive: false });
 
-  function handleClick() {
+  function handleClick(pos) {
     initAudio();
     if (gameState === STATE.MENU) {
+      if (isMenuPrizeHotspot(pos)) {
+        menuEasterClicks++;
+        if (menuEasterClicks >= MENU_EASTER_CLICKS_REQUIRED) {
+          unlockSecretPrizeDoor();
+        } else {
+          const remaining = MENU_EASTER_CLICKS_REQUIRED - menuEasterClicks;
+          spawnFloatingText(BASE_W / 2, BASE_H * 0.45, `${remaining} tocchi...`, '#ff88aa', 18);
+          playTone(360 + menuEasterClicks * 70, 0.08, 'sine', 0.08);
+        }
+        return;
+      }
+      menuEasterClicks = 0;
       startGame();
     } else if (gameState === STATE.PLAYING) {
       launchBall();
@@ -2259,13 +2283,16 @@
     }
   }
 
-  canvas.addEventListener('click', handleClick);
+  canvas.addEventListener('click', (e) => {
+    const pos = getCanvasPos(e.clientX, e.clientY);
+    handleClick(pos);
+  });
   canvas.addEventListener('touchstart', (e) => {
     e.preventDefault();
     const touch = e.touches[0];
     const pos = getCanvasPos(touch.clientX, touch.clientY);
     paddle.targetX = pos.x;
-    handleClick();
+    handleClick(pos);
   }, { passive: false });
 
   // Keyboard support
